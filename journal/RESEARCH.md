@@ -418,6 +418,14 @@ Ranked by how much they would explain if true.
    have been the wrong fix. `38579d9` collapses whitespace in `queueCompaction`, so a long
    instruction arrives whole and on one line.
 
+   **Still open, measured 2026-09-20 on root itself, after `38579d9` was in the rails.** A
+   3.9 KB single-line instruction was queued and cancelled; a 1.4 KB one fired. The newline
+   fix cannot explain it, and the table above has 3.5 KB single-line firing. So either there
+   is a limit somewhere between 3.5 KB and 3.9 KB, or something in that particular text broke
+   the slash command. Two points is not a boundary. Until it is bisected, keep a compaction
+   instruction well under 3 KB, and check `self_context` on the next turn rather than trusting
+   "Compaction queued".
+
    The flag that never cleared was real: `compactionAskedFor` now expires after two minutes
    (`be1e4f6`) instead of disabling threshold compaction for that session forever.
 
