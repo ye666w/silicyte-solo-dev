@@ -5,13 +5,21 @@ it deliberately carries no line numbers. This file is the opposite trade: it is 
 mine, and it carries anchors, measurements and suspicions — the things that go stale but pay
 for themselves while they are fresh.
 
-**Pinned to:** product and this fork both at `af2b817`, 20.09.2026.
+**Pinned to:** product and this fork both at `8c9b6da`, 20.09.2026. Re-checked and repinned after the day's 17 commits: every numbered anchor below had moved and was corrected by its own grep string, which is what they are for.
 **Lives at** `workspace/journal/RESEARCH.md` — inside the workspace repo, so it is versioned with
 the config and the skills and survives every restart and every clear. It sits under `journal/`
 rather than beside `fleet.config.ts` for a blunt reason: that is the only place in the workspace a
 session is permitted to write, and a reference nobody may update rots.
 Every line number below is followed by a grep anchor in `«»`. If the number is wrong, the
 anchor still finds it. If neither works, the section is stale — say so rather than guessing.
+
+**Checking the whole file is one script, so do it rather than trusting it.** Pull every
+`:<number> «<anchor>»` pair out of this file, search `src/**/*.ts` for each anchor, and report
+any whose number does not match where the anchor actually is. Run it **from your own worktree**,
+never from the orchestrator root — there `src` means the rails and the write guard refuses the
+command outright (correctly; that is `e1bb9b8`). On 20.09.2026 this found 10 moved and 1 deleted
+out of 11 after a single day's commits: line numbers here rot in hours, anchors do not, and the
+whole point of the pairing is that the second repairs the first.
 
 ## The three checkouts
 
@@ -54,57 +62,64 @@ for exactly its authority, and a briefing assembled from its role profile. Messa
 session are `SDKMessage`s; `bus.ts` translates them into a `FleetEvent` union; everything else
 in the system is a reaction to that union. A web panel on `:4173` reads the same bus over SSE.
 
-Nine roles, `maxSessions: 9`, so the fleet is memory-bound and always nearly full.
+**This fleet is two roles, not nine.** `maxSessions: 7`.
 
-    manager  →  docs, reflector, dev
-    dev      →  back, front
-    back     →  researcher, review, tester
+    root (Opus 5, max)  →  worker × 6 (Haiku, high)
+
+`root` is the root (`reportsTo: null`), holds every verb over its workers, and is the only
+session that may reach the operator or restart the fleet. A worker grants no authority onward,
+so the tree is exactly two deep. Memory is not the binding constraint here that it was at nine.
+
+The nine-role shape below is the **previous** design, kept because the product still supports it
+and because `silicyte-dev-team`'s `workspace/skills/` is worth reading. It is not what is
+running:
+
+    manager  →  docs, reflector, dev          manager was the root
+    dev      →  back, front                   only manager and reflector could ask the operator
+    back     →  researcher, review, tester    dev could neither close a session nor ask
     front    →  researcher, review, tester
-
-`manager` is the root (`reportsTo: null`). Only `manager` and `reflector` may `ask_operator`.
-`dev` has no `fleet_kill` and no `ask_operator` — both deliberate.
 
 ## The spine: how a session is born, lives and dies
 
-All in `src/supervisor.ts` unless noted. 1773 lines; this is the whole product's centre of mass
+All in `src/supervisor.ts` unless noted. 1823 lines; this is the whole product's centre of mass
 (fan-in 32, second only to `types.ts` at 61).
 
-    spawn()                    :208   «async spawn(req: SpawnRequest»
-      refuses if frozenByTheLimit.size            :209
-      refuses if sessionsTheCapCounts >= cap      :216
-      refuses if refusalIfTheRoleIsFull           :225  «maxPerRole»
-      worktrees.create → branch silicyte/<sid>    :229
-      registry.add, then launchProcess            :247/:253
-      drainIntoBus (fire and forget)              :262  «void this.drainIntoBus»
-      handle.send(task)                           :264
+    spawn()                    :230   «async spawn(req: SpawnRequest»
+      refuses while the limit holds the fleet     :231  «this.theLimit.holdsTheFleet()»
+      refuses if sessionsTheCapCounts >= cap      :239
+      refuses if refusalIfTheRoleIsFull           :247 / :293  «refusalIfTheRoleIsFull(role: string)»
+      worktrees.create → branch silicyte/<sid>    :251
+      registry.add, then launchProcess            :271 / :277
+      drainIntoBus (fire and forget)              :285  «void this.drainIntoBus»
 
-    launchProcess()            :287   «private launchProcess»
+    launchProcess()            :310   «private launchProcess»
       assembles: skill + briefing + mcpServers + disallowedTools + sandbox
 
-    drainIntoBus()             :381   «for await (const msg of rec.handle!.query)»
+    drainIntoBus()             :406   «for await (const msg of rec.handle!.query)»
       the ONLY place SDK messages enter. finally: advances the spend baseline.
       README calls this ordering load-bearing and untested — see Soft spots.
 
-    react(e)                   :1242  «private react(e: FleetEvent)»
+    react(e)                   :1270  «private react(e: FleetEvent)»
       the single switch every event passes through. Read this before theorising
       about what happens after anything.
 
-    routeReportToItsReader()   :1338  «private routeReportToItsReader»
+    routeReportToItsReader()   :1366  «private routeReportToItsReader»
       fires on EVERY result, unconditionally. An agent cannot choose not to report.
       Any skill rule saying "do not send interim reports" is unenforceable.
 
-    park / unpark              :954 / :969   «private async park»
+    park / unpark              :953 / :981   «private async park»
       idle → process stopped, memory freed, transcript kept. parkAfterIdleSeconds: 90.
 
-    clear()                    :1041  «async clear(sid»
+    clear()                    :1069  «async clear(sid»
       the one thing that throws a conversation away. Refuses a quarantined session by name.
 
-    kill / closeOne            :499 / :506   «private async closeOne»
+    kill / closeOne            :523 / :530   «private async closeOne»
 
-Death paths that are not `kill`: `recoverFromFailedTurn` :831, `reportUnexpectedDeath` :405,
-`recoverManager` :428, `halt` :1219, `freezeEntireFleet` :1144, `quarantineForIncident` :1168.
-`freezeEntireFleet` splits into `claimEverythingForFreezing` (synchronous, sets the statuses) and
-`interruptWhatWasClaimed` (awaits the IPC interrupts) — `af2b817` split them because `spawn()`
+Death paths that are not closing on purpose: `recoverFromFailedTurn` :858,
+`reportUnexpectedDeath` :429, `recoverManager` :452, `halt` :1247, `freezeEntireFleet` :1172,
+`quarantineForIncident` :1196.
+`freezeEntireFleet` :1172 splits into `claimEverythingForFreezing` :1176 (synchronous, sets the
+statuses) and `interruptWhatWasClaimed` :1185 (awaits the IPC interrupts) — `af2b817` split them because `spawn()`
 gates on a set that was only filled after the await, leaving a window where a session could still
 be started into a freeze it would never be released from.
 
@@ -260,10 +275,13 @@ Two accounting surfaces that do not sum, and confusing them has cost an hour:
     stopFleetAtFiveHourPercent: 85
     stopFleetAtWeeklyPercent:   90
 
-    stopTheFleetIfALimitSaysSo()  :1382  «if (this.theLimitHoldsTheFleetUntil > Date.now()) return»
-    letTheFleetBackWhenTheLimitResets()  :1410
-    releaseOnlyWhatTheLimitFroze()       :1417
-    holdOffUntilTheLimitLifts()          :1426
+    stopTheFleetIfALimitSaysSo()  :1410  «private async stopTheFleetIfALimitSaysSo»
+    the hold itself now lives in `src/limit-hold.ts` (68cc3cd): how long, why, what it said,
+    whether the operator is spending the window out, how long nothing is nudged. The five
+    fields that used to sit on the supervisor are gone from it.
+    letTheFleetBackWhenTheLimitResets()  :1453
+    releaseOnlyWhatTheLimitFroze()       :1459
+    holdOffUntilTheLimitLifts()          :1468
 
 Two readings are merged field by field in `rate-limits.ts:85` `«everythingEitherReadingKnows»`.
 Card #52 was exactly this: a percentage measured in one window was carried onto the next. Fixed
