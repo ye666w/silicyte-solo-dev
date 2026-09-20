@@ -725,16 +725,20 @@ Ranked by how much they would explain if true.
    branches and 8 worktrees under `/tmp` and `/var/folders`. Verified none held unique commits;
    deleted once, will come back. Not filed.
 
-8. **The two sessions the product spawns itself are pinned a model generation back, and the
-   constant that does it is named as if it were the fleet's default.** `guardian.ts:5`
-   `export const DEFAULT_MODEL = 'claude-opus-4-8'`, used only by `guardianProfile`;
-   `setup.ts:21` `const SETUP_MODEL = 'claude-opus-4-8'`, its own independent copy of the same
-   string. The fleet itself runs `claude-opus-5` (`workspace/fleet.config.ts`), and the two
-   cost the same per token — so this is not a cost choice, it is a literal nobody revisited.
-   Two separate defects: the guardian and setup run on an older model than everything they
-   watch, and `DEFAULT_MODEL` exported from `guardian.ts` is the same class of lying name as
-   `rec.branch` was — nothing else defaults to it. Checked 2026-09-21, not filed, not fixed.
-   `MODELS_THE_CODE_KNOWS` in `types.ts` (`06dc443`) is now the place these would refer to.
+8. **The two sessions the product spawns itself are pinned a model generation back.** The
+   naming half is FIXED in `f23b870`; the version is the operator's, filed as `e4c55abc`.
+
+   What was there: `guardian.ts:5` `export const DEFAULT_MODEL = 'claude-opus-4-8'` imported by
+   nobody — its only use was the line below its own declaration — and `setup.ts:21`
+   `const SETUP_MODEL = 'claude-opus-4-8'`, an independent copy of the same string. Two names,
+   one value, agreeing by coincidence, and `DEFAULT_MODEL` claiming to be a fleet-wide default
+   when the fleet's models come from the role config. Same class of lying name as `rec.branch`.
+   Now one `MODEL_FOR_WRAPPER_OWNED_ROLES` in `types.ts`, beside `MODELS_THE_CODE_KNOWS`, with
+   a test that the name is in that list at all.
+
+   Still open: the fleet runs `claude-opus-5` and these two run `claude-opus-4-8` at the same
+   price per token, so it is not a cost choice. Whether that is deliberate is the one thing the
+   code cannot say — no comment is possible here and no test asserted it either way.
 
 ## Traps that have already cost time
 
