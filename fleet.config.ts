@@ -35,7 +35,7 @@ const config: FleetConfig = {
       mayAskTheOperator: true,
       mayRestartTheFleet: true,
       maySeeAccountLimits: true,
-      maySculptSkills: ['worker'],
+      maySculptSkills: ['root', 'worker'],
       sessionAuthority: everyWorkerIsYours,
       maxPerRole: 1,
     },
