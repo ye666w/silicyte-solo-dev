@@ -486,6 +486,30 @@ survive checking, and two were wrong in the direction that would have caused a w
 
     the tool takes NO session id — it lands the caller's branch and nothing else.
 
+## Checked in the third pass and found sound — do not re-derive these
+
+Ten findings, one real (`7acf0e8`). The other nine are written down so nobody spends an hour
+rediscovering them, because four of them read as plausible defects and one carried a fix that
+would have caused a real one.
+
+    root-trouble.ts   wentWell() clears the failure chain, and it is called ONLY under
+                      «e.sid === this.humanEntryPointSid». A worker succeeding does not
+                      reset the root's chain. Not a defect.
+    session-state.ts  ALSO_ENDS is not inverted. Process ⊂ conversation ⊂ session, so a
+                      session ending forgets all three lifetimes. "Forget only its own"
+                      would recreate the first defect of 2026-09-20. Not a defect.
+    spending.ts       recordTotalFor has one caller, noteWhatItSpent, which applies
+                      theHigherReading before calling it. The guard is upstream by
+                      construction. Not a defect.
+    registry.ts       setStatus('stopped') calls persist(), and persist() writes live()
+                      — already filtered. The row is removed from disk, not kept.
+    workspace.ts      the three mirror read/write races are real in principle. The cost of
+                      a lock is higher than a transient ENOENT on a skill file, and
+                      apply_skill_changes restarts the affected sessions anyway.
+    config-file.ts    the Date.now() cache-buster could collide inside one millisecond.
+                      Reachable only by two config loads in the same tick; consequence is
+                      one stale read.
+
 ## The outer ring: everything the spine section does not cover
 
 Read 2026-09-20 at `55ac66d`-`fd28608`, all of it verified by hand rather than taken from a
