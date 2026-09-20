@@ -38,6 +38,7 @@ const config: FleetConfig = {
       maySculptSkills: ['worker'],
       sessionAuthority: everyWorkerIsYours,
       maxPerRole: 1,
+      mayRunOutsideTheSandbox: true,
     },
 
     worker: {
