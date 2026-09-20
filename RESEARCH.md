@@ -314,6 +314,11 @@ incidentally, when a configured threshold happened to trip on the same window. I
 `WINDOWS_COVERING_THE_WHOLE_ACCOUNT` so an exhausted `model_scoped:` limit does not stop a fleet
 that is not on that model.
 
+One bound worth knowing before reasoning about the override: `stopTheFleetIfALimitSaysSo` floors
+every hold at `QUIET_WHILE_RATE_LIMITED_MS` (5 min), so `spendingThisWindowOutUntil` inherits that
+floor — a Resume near the end of a window keeps the ceiling off for five minutes into the next
+one. Bounded and deliberate, not a leak.
+
 The test that guards the first half is `tests/stop-at-the-limit.test.ts:261`, and it uses the
 cheap-refusal trick: `spawn({role: 'nobody-declared-this'})` answers "close to its limit" while
 the guard is shut and "is not declared in the config" once it opens, with no process ever started.
