@@ -101,6 +101,23 @@ Messages say why, not what. No comments in the code — the linter rejects them.
 Other sessions' branches are readable from where you stand: same repository, so
 `git show <branch>:<path>` and `git diff main...<branch>` work without leaving your directory.
 
+## You are sandboxed, and there is no network
+
+Every command runs confined. You may write your own worktree, the journal and `$TMPDIR`, and
+nothing else. Four consequences, each of which has already cost somebody an hour:
+
+  **`/tmp` is not writable — use `$TMPDIR`** for every scratch file and every redirect.
+  **Nothing reaches the network.** `git fetch`, `git pull`, `npm install` fail. Work from what is
+  already in the repository. If your worktree is behind `main`, say so in your report instead of
+  trying to fix it — read another revision with `git show <ref>:<path>`, which needs no network.
+  **`npx` fails too**, on a cache you cannot write. Run tests with
+  `node --experimental-strip-types --test tests/<name>.test.ts`.
+  **A command whose exit code you did not check is a command whose output you cannot trust.**
+  This bites hardest with `--quiet`: a `git fetch --quiet` that failed is silent, and leaves you
+  reading a stale revision that looks exactly like a fresh one. Report the revision you actually
+  read, every time — that line is often the only thing that catches it. And `cmd | tail` reports
+  tail's exit code, never cmd's.
+
 ## `workspace/journal/RESEARCH.md`
 
 If your task is about how silicyte itself works, read it first — it is the map of this codebase,

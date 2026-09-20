@@ -469,14 +469,31 @@ Ranked by how much they would explain if true.
    cannot be tested is usually a claim about the test harness that happens to exist.** Check what
    the fixture actually does before believing it.
 
-5. **`supervisor.ts` is 1773 lines and holds ~25 private fields of mutable coordination state**
-   — `compactionRequested`, `clearWhenTheTurnEnds`, `parking`, `resuming`, `reloadWhenQuiet`,
-   `stoppedOnPurpose`, `frozenByTheLimit`, `toldTheOperatorItReadsLow`, `idleSince`,
-   `humanOutbox`, `reportsHeldUntilUnfreeze`, … Each is a Set or Map keyed by sid, each added
-   in one place and removed in one or two others. **Defect #1 is exactly this shape, and it is
-   unlikely to be the only one.** A systematic sweep — for every such field, list add sites and
-   delete sites, and ask what happens if the delete never fires — is the highest-yield audit
-   available here and has not been done.
+5. **The coordination-state sweep — DONE 2026-09-20 against `55ac66d`, and it found nothing.**
+   The entry used to say `supervisor.ts` holds "~25 private fields of mutable coordination
+   state", that defect #1 was that shape, and that a sweep was the highest-yield audit here.
+   The sweep is done. The number is **17**, and the answer is no.
+
+       13 of 17   declared through `stateBySid` with an explicit lifetime, and cleared by that
+                  machinery at the right boundary rather than by hand
+        1         `roleFingerprints` — keyed by role, bounded by the number of roles
+        1         `stoppedOnPurpose` — keyed by task id, deleted on both outcomes (748, 1324)
+        2         `reportsHeldUntilUnfreeze`, `humanOutbox` — cleaned in `closeOne`
+
+   **The asymmetry that looks like a defect and is not.** `closeOne` drops both arrays; the
+   `finally` in `drainIntoBus` does not. That is the process/session distinction doing its job:
+   `closeOne` is the session ending, the `finally` is a process ending while the session may
+   continue on its own transcript. A human message queued for a session that then crashes
+   *should* survive to be delivered when it comes back (it is, at the `result` case around 1341).
+   Cleaning there would lose it.
+
+   The one residue, named so nobody re-derives it: `stoppedOnPurpose` keeps an entry if
+   `stopTask` succeeds and the task never appears in a later `gone` list. Bounded by tasks ever
+   stopped on purpose, keyed by a unique id, consequence nil unless ids repeat. Not worth code.
+
+   **What this entry is really evidence of.** `stateBySid` was built to make this class of bug
+   impossible, and 13 of 17 fields went through it. The audit's yield was already collected by
+   the design — which is the outcome you want and the one nobody writes down.
 
 6. **`app.html` is 2683 lines with 120 functions and no module boundary.** Everything the
    panel renders is agent-written and untrusted; `escapeHtml` at :893 is the only defence and
