@@ -486,6 +486,16 @@ survive checking, and two were wrong in the direction that would have caused a w
 
     the tool takes NO session id — it lands the caller's branch and nothing else.
 
+    All three states exercised against the real remote on 2026-09-20, not only against
+    the injected runner:
+      a branch on top of main          landed, five times, code and journal
+      a branch main has moved past     refused, naming the rebase — and the refusal had
+                                       just fetched, so the rebase it asks for is possible
+                                       without any network in the session
+      a branch level with main         refused as holding nothing
+    The recovery loop closes: refuse, rebase, land. That is what makes a session with no
+    network able to get current by itself, and it is the whole argument for the design.
+
 ## Checked in the third pass and found sound — do not re-derive these
 
 Ten findings, one real (`7acf0e8`). The other nine are written down so nobody spends an hour
