@@ -285,6 +285,16 @@ Two accounting surfaces that do not sum, and confusing them has cost an hour:
     releaseOnlyWhatTheLimitFroze()       :1459
     holdOffUntilTheLimitLifts()          :1468
 
+One `{kind:'rateLimit'}` event with `status:'rejected'` raises **two different delays**, and
+they are easy to read as one. `holdOffUntilTheLimitLifts` sets `nothingIsNudgedUntil` — the
+fleet stops being poked, nothing is frozen. `stopTheFleetIfALimitSaysSo` sets `holdsUntil` —
+the fleet is actually stopped. Different fields on `TheLimitOnTheFleet`, different questions
+(`nothingIsNudgedYet()` vs `holdsTheFleet()`), and only the first is set synchronously; the
+second happens inside an async call the case does not await. Both take
+`max(now + QUIET_WHILE_RATE_LIMITED_MS, resetsAt)`, so the account's own reset wins whenever it
+is further out than five minutes. Joined by a test in `ac1f0cf` — until then the refusal branch
+had never run in any test, because the only bus-level case carried an allowed snapshot at 88%.
+
 Two readings are merged field by field in `rate-limits.ts:85` `«everythingEitherReadingKnows»`.
 Card #52 was exactly this: a percentage measured in one window was carried onto the next. Fixed
 in `ad56613` by `«theWindowItMeasuredHasSinceRolledOver»`, which compares how far the boundary
