@@ -491,6 +491,15 @@ Ranked by how much they would explain if true.
 - A stale registry row restored from disk has caused three separate failures to start. When the
   fleet comes up wrong, `registry.json` is the first file to read.
 - `/compact` typed with a Cyrillic `с` does not fire and gives no error.
+- **A resumed session can see a tool's old description with its new behaviour.** Measured
+  2026-09-20: after a restart that granted root the right to edit its own role file, the sandbox
+  allow-list already carried the new directory, but `apply_skill_changes` still described itself
+  as covering `worker` alone. Calling it answered `Applied to: root.` Both values come from the
+  same `profile.maySculptSkills` in the same function (`launchProcess`), so they cannot really
+  disagree — the description was a snapshot, most likely the cached prompt prefix a resume reuses.
+  Mechanism unproven; the observation is not. **Never conclude a capability is missing from a tool
+  description. Call it and read the reply.**
+
 - **A compaction instruction must be one line.** `self_compact`/`fleet_compact` take free text
   and it used to go straight into `/compact ${instructions}`; a line break silently cancelled
   the whole thing. Fixed in `38579d9`, but the same rule applies to anything else ever sent as
