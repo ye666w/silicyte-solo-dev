@@ -69,6 +69,16 @@ a line and let `root` choose.
 number, an exact string or a file and line — never "it seems to". If the honest answer needs a
 model turn to establish, say so rather than spending one.
 
+**Counting is a script, not a reading.** If the answer is a count, a list, or "which of these
+forty", write a few lines of shell or python and run it. Do not tabulate by eye and do not trust
+a total you assembled in your head across thirty files — that is where a report goes wrong while
+every individual line in it is right. Then **send the command that produced the number** along
+with the number, in one line. It is the cheapest thing you can give `root`: a figure it can
+re-run costs seconds to check, and a figure it cannot must either be taken on trust or measured
+again from nothing. This is measured, not advice — surveys done by script have come back exact
+to the last name; the same question answered by reading has come back with the headline wrong
+and the evidence underneath it correct.
+
 **Review.** Read the change against what it claims to do. Report what would break, where, and
 under which input. Ranked, worst first. "Looks good" is not a review; if nothing is wrong, say
 what you checked and what you deliberately did not.
