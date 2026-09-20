@@ -473,6 +473,20 @@ Ranked by how much they would explain if true.
   word costs you the call and the turn. Two ways through: a bracket expression that is not the
   literal token (`k[i]ll`), or the Read/Edit/Write tools, which the Bash hook never sees. Long
   commit messages go through a file with `git commit -F`, written with the Write tool.
+- **`fleet_restart` only works if the fleet was launched under the watcher.** `npm start`
+  (`src/start.ts`) runs it with nothing outside the process to bring it back, and the restart is
+  refused with "nothing outside this process would start it again". `npm run fleet`
+  (`src/supervised.ts`) is the supervised launch that makes self-restart possible. Check which
+  one is running *before* promising the operator a restart — the refusal arrives only after you
+  have already told them it is happening.
+- **Config changes in `workspace/fleet.config.ts` apply at startup, not on write.** Editing the
+  file changes nothing in the running process, so the old ceilings stay in force until somebody
+  relaunches. Worth saying out loud when a limit threshold is the thing being changed.
+- The orchestrator checkout (`silicyte-solo-dev`) has `origin` = the **same** repo you land to
+  (`ye666w/silicyte.git`), on `main`. So the rails are exactly what you pushed — but only after
+  that checkout is pulled. It can sit many commits behind while you keep landing, which means
+  the fleet runs code you fixed hours ago. `git log HEAD..origin/main` in that checkout is the
+  one-line check for how stale the running fleet is.
 - **There is no local `main` to fast-forward from a worktree.** `git branch -f main <sha>` dies
   with "cannot force update the branch 'main' used by worktree at …/silicyte" — the orchestrator's
   own checkout has it checked out. Landing is `git push origin HEAD:main`, full stop. Do not
