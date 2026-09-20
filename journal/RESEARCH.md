@@ -405,11 +405,12 @@ Findings from six workers reading the files this map had never anchored, 2026-09
 survive checking, and two were wrong in the direction that would have caused a worse defect if
 "fixed". Treat every line here as a lead, not a fact. Check first.
 
-- `close_operator_question` takes an id and does not check who filed it (`fleet-mcp.ts:308`, and
-  `OperatorQuestions.close` takes no asker either). Same shape for `ask_operator`'s `continues`:
-  `operator-questions.ts:104` looks the thread up by id without comparing `askedBy`. **I did
-  verify these two reads myself** — what is unchecked is whether it matters, and today it cannot
-  be reached: only sessions with `mayAskTheOperator` get the tools, and this fleet has one.
+- ~~`close_operator_question` and `ask_operator`'s `continues` took a task id on trust~~ — FIXED
+  in `608e404`. The asker is a required argument now rather than an optional check, a task that
+  is not yours is refused in the same words as one that does not exist so ids cannot be probed,
+  and a `continues` naming someone else's thread opens a task of its own. It was unreachable in a
+  fleet where one session may reach the operator, which is why it survived; a second role with
+  `mayAskTheOperator` is a config line, not a code change.
 - `incident.ts:104,111` — if `halt()` or `applyVerdict()` throws, `closeIncident()` never runs and
   `handling` stays non-null, so every later `open()` returns immediately. A freeze nothing can
   lift. Wants a `finally`. Unverified.
