@@ -1,0 +1,395 @@
+# silicyte — research map
+
+Not `MAP.md`. `MAP.md` ships with the product and tells an agent which file answers for what;
+it deliberately carries no line numbers. This file is the opposite trade: it is local, it is
+mine, and it carries anchors, measurements and suspicions — the things that go stale but pay
+for themselves while they are fresh.
+
+**Pinned to:** product `c35ef55`, this fork `af2b817`, 20.09.2026.
+**Lives at** `workspace/RESEARCH.md` — inside the workspace repo, so it is versioned with the
+config and the skills and survives every restart and every clear.
+Every line number below is followed by a grep anchor in `«»`. If the number is wrong, the
+anchor still finds it. If neither works, the section is stale — say so rather than guessing.
+
+## The three checkouts
+
+    /Users/photon/projects/silicyte/silicyte              product. `main` is what ships. A git repo.
+    /Users/photon/projects/silicyte/silicyte-solo-dev     fork. THIS fleet runs here, on ITS src/.
+    /Users/photon/projects/silicyte/silicyte-dev-team     fork. The older nine-role team fleet.
+
+All three are clones of `ye666w/silicyte`. **Only one fleet may run at a time** — both forks cut
+worktrees from the same product checkout and push to the same `main`.
+
+A fork's `src/` is **the rails** — the code its supervisor is actually executing. Its
+`workspace/` is a **separate git repo with its own remote**, holding `fleet.config.ts`, the
+`skills/`, `journal/` and this file. `.gitignore` in the fork ignores `/workspace/`, which is why
+the two histories never collide.
+
+This fleet: `root` (Opus 5, max) owning six `worker`s (Haiku, high), `maxSessions: 7`, rails from
+`origin/main`. The team fleet's nine roles are the previous design and its
+`workspace/skills/` is still worth reading — most of what is written there was paid for.
+
+Consequences worth holding:
+
+- Reading the product tells you what `main` says. Reading the fork's `src/` tells you what the
+  fleet **actually ran**. When a log does not match the code, check which one you read.
+- A fork's `src/` moves only on `fleet_restart` with `updateRails: true`, which does
+  `git pull <railsFrom>`, runs test/typecheck/lint, and rolls back if any goes red.
+  `railsFrom` is `origin/main` here, `upstream/main` in the team fork.
+  → `src/self-restart.ts` `«class Rails»` `«whatFailsOnThem»`
+- The product checkout goes stale silently. Nobody in the fleet may write to it (by design,
+  card #24). It has been found 13, 15 and 17 commits behind. **Check `git -C … log --oneline -1`
+  against the fork before concluding anything about current behaviour.**
+- Directories here have been renamed under a live session. If a path 404s, re-locate it before
+  concluding anything was lost.
+
+## The 60-second model
+
+One Node process (`src/start.ts`) holds a `Supervisor`. The Supervisor owns N Claude Code CLI
+sessions, each a separate ~270 MB process reached through the Agent SDK's `query()`. Every
+session gets its own git worktree, its own branch `silicyte/<sid>`, its own MCP server minted
+for exactly its authority, and a briefing assembled from its role profile. Messages from a
+session are `SDKMessage`s; `bus.ts` translates them into a `FleetEvent` union; everything else
+in the system is a reaction to that union. A web panel on `:4173` reads the same bus over SSE.
+
+Nine roles, `maxSessions: 9`, so the fleet is memory-bound and always nearly full.
+
+    manager  →  docs, reflector, dev
+    dev      →  back, front
+    back     →  researcher, review, tester
+    front    →  researcher, review, tester
+
+`manager` is the root (`reportsTo: null`). Only `manager` and `reflector` may `ask_operator`.
+`dev` has no `fleet_kill` and no `ask_operator` — both deliberate.
+
+## The spine: how a session is born, lives and dies
+
+All in `src/supervisor.ts` unless noted. 1773 lines; this is the whole product's centre of mass
+(fan-in 32, second only to `types.ts` at 61).
+
+    spawn()                    :208   «async spawn(req: SpawnRequest»
+      refuses if frozenByTheLimit.size            :209
+      refuses if sessionsTheCapCounts >= cap      :216
+      refuses if refusalIfTheRoleIsFull           :225  «maxPerRole»
+      worktrees.create → branch silicyte/<sid>    :229
+      registry.add, then launchProcess            :247/:253
+      drainIntoBus (fire and forget)              :262  «void this.drainIntoBus»
+      handle.send(task)                           :264
+
+    launchProcess()            :287   «private launchProcess»
+      assembles: skill + briefing + mcpServers + disallowedTools + sandbox
+
+    drainIntoBus()             :381   «for await (const msg of rec.handle!.query)»
+      the ONLY place SDK messages enter. finally: advances the spend baseline.
+      README calls this ordering load-bearing and untested — see Soft spots.
+
+    react(e)                   :1235  «private react(e: FleetEvent)»
+      the single switch every event passes through. Read this before theorising
+      about what happens after anything.
+
+    routeReportToItsReader()   :1331  «private routeReportToItsReader»
+      fires on EVERY result, unconditionally. An agent cannot choose not to report.
+      Any skill rule saying "do not send interim reports" is unenforceable.
+
+    park / unpark              :954 / :969   «private async park»
+      idle → process stopped, memory freed, transcript kept. parkAfterIdleSeconds: 90.
+
+    clear()                    :1041  «async clear(sid»
+      the one thing that throws a conversation away. Refuses a quarantined session by name.
+
+    kill / closeOne            :499 / :506   «private async closeOne»
+
+Death paths that are not `kill`: `recoverFromFailedTurn` :831, `reportUnexpectedDeath` :405,
+`recoverManager` :428, `halt` :1212, `freezeEntireFleet` :1144, `quarantineForIncident` :1161.
+
+## Where state lives on disk
+
+Everything persistent is under `<fork>/.silicyte/`. This is the first place to look for
+"what did the fleet think was true".
+
+    registry.json              who exists, role, reportsTo, status, tokens, branch, cwd
+    spending.json              the token ledger; survives fleet_restart
+    operator-questions.json    questions waiting on the human, and their answers
+    timings.json               the four tunables (see below)
+    connectors.json            which MCP connectors answered
+    integrations.json          Slack/Telegram — mode 600, HOLDS A LIVE TELEGRAM BOT TOKEN.
+                               Never paste values anywhere. Key names only.
+    activity.log               human-readable, written by ActivityLog from the bus
+    panel/activity.jsonl       what the panel replays after a reload
+    panel/<sid>.transcript.jsonl   per-session transcript the panel restores
+    worktrees/                 one git worktree per live session
+    restarting.json            the restart intent, read once on the way back up
+    fleet.log                  NOT written by the product — the operator's stdout redirect
+
+Written by: `registry.ts:150`, `spending.ts:126`, `operator-questions.ts:208`, `timings.ts:46`,
+`connectors.ts:56`, `integrations.ts:44`, `self-restart.ts:68`, `web/panel-memory.ts:33`.
+Protected from every agent by `write-guard.ts:16-20` `«ORCHESTRATOR_OWN_FILES»`.
+
+Archived snapshots follow the pattern `<name>.before-the-<n>th-start.json`. Those are mine,
+made by hand at each reset — not a product feature. They are the only record of what a previous
+run believed, and several diagnoses have come out of diffing them.
+
+Workspace side, `<fork>/workspace/`:
+
+    fleet.config.ts            nine roles, models, authority, caps
+    skills/<role>/SKILL.md     what each role is told it is
+    skills/<role>/references/  what that role should simply know
+    supervisor-messages.json   the three things the supervisor says: rootFirstTask,
+                               rootResumed, idleNudge  «SupervisorMessageKey»
+    journal/YYYY-MM-DD.md      the manager's daily journal
+    journal/lessons/<role>.md  written by roles, read and EMPTIED by reflector
+    journal/docs/<role>/       optional artefacts; nothing processes or empties this
+    journal/scratch/           cleared at every restart
+
+CLI transcripts live outside both checkouts, in `~/.claude/projects/<mangled-cwd>/<uuid>.jsonl`.
+That is where a session's real conversation is. **Before deleting any of them, assert my own
+session ids are not in the set.**
+
+## The event vocabulary
+
+`FleetEvent` in `src/types.ts:175` `«export type FleetEvent»` — 30 variants. This union is the
+best single index of "what can happen in this system". Reading it beats reading prose.
+
+Produced in exactly one place: `bus.ts:66` `«ingest(sid: string, msg: SDKMessage)»`. That
+function is the entire translation surface between the SDK and this product — **every question
+of the form "does the fleet notice X?" is answered there in about forty lines.** If a field
+is not read in `ingest`, nothing downstream can know it. That was the whole of card #54
+(`msg.tools` was discarded; now `toolsOfferedByCli: msg.tools ?? []` at `bus.ts:123`).
+
+SDK message types handled: `assistant`, `result`, `rate_limit_event`, and `system` with
+subtypes `init`, `status`, `background_tasks_changed`, `compact_boundary`,
+`model_refusal_fallback`, `model_refusal_no_fallback`. Everything else falls through `return`.
+
+## Authority
+
+Structural, not prompt-based. Three things compose:
+
+1. **`SessionAuthority`** (`types.ts:35`) = `{ mayOwnRoles, maxOwnedAtOnce, maxTreeDepth, verbs }`.
+   `SessionVerb` = read | interrupt | send | retune | kill | clear.
+2. **`WhatTheSessionMayDo`** (`fleet-mcp.ts:11`) = the four booleans/lists that are not verbs:
+   `mayReachTheOperator`, `sculptableSkills`, `mayRestartTheFleet`, `maySeeAccountLimits`.
+3. **`mintFleetServerBoundTo(sid, authority, registry, api, granted)`** (`fleet-mcp.ts:18`)
+   builds an MCP server holding only the tools that authority earns. A session is not told
+   not to use a tool — the tool is not there.
+
+Eighteen tools, in five groups:
+
+    subtree   (needs a SessionAuthority)  fleet_list fleet_request fleet_transcript
+                                          fleet_interrupt fleet_send fleet_retune
+                                          fleet_kill fleet_compact fleet_clear
+                                          fleet_reload_skills
+    operator  (mayReachTheOperator)       ask_operator close_operator_question
+    rails     (mayRestartTheFleet)        fleet_restart
+    skills    (sculptableSkills.length)   apply_skill_changes
+    always                                self_context self_compact self_clear
+                                          + account_limits if maySeeAccountLimits
+
+Separately, `disallowedToolsFor(profile, isHumanEntryPoint)` (`supervisor.ts:122`) removes
+`TOOLS_THAT_REACH_AGENTS_OUTSIDE_THE_REGISTRY = ['Agent', 'Task', 'SendMessage']` from every
+session including the root, plus `AskUserQuestion` from everything that is not the root.
+Held by `tests/blocked-tools.test.ts`, which is written to go red if an SDK update renames
+or adds one.
+
+## The write guard, and what it cannot see
+
+`src/write-guard.ts`, 559 lines, the second-hairiest file here. It is a **Bash PreToolUse
+hook plus a path check on the file-writing tools**. It reads command *text*.
+
+It handles, genuinely: redirects and `tee` `«REDIRECTED_INTO»`, verbs that write every path
+`«VERBS_THAT_WRITE_EVERY_PATH_THEY_NAME»`, verbs that write their last path
+`«VERBS_THAT_WRITE_THEIR_LAST_PATH»`, flag-pointed targets, `cd`-tracking across up to 16
+chained pieces `«WHERE_ONE_COMMAND_MIGHT_STAND»`, quote state across pieces
+`«piecesThatAreOnlyPartOfAQuote»`, alias/function redefinition `«anyNameIsBeingReassigned»`,
+and `git` by subcommand and `-C`/`--git-dir` target `«whatAGitCommandWouldRewrite»`.
+
+It is blind to, by construction:
+
+- **The `Read` tool.** It is a write guard. It has nothing to say about reading
+  `.silicyte/integrations.json`. That gap is card #53.
+- **The network.** `curl`ing a secret out is not a write.
+- **Interpreters.** `PROGRAMS_THIS_GUARD_CANNOT_FOLLOW` is a 60-entry deny-list — it refuses
+  rather than reasons. A program not on that list and not on
+  `PROGRAMS_THIS_GUARD_JUDGES_BY_ITSELF` (`git`, `echo`, `printf`) is a hole.
+- **Runtime-assembled paths**, anything behind `$` or backticks `«A_TARGET_THIS_CANNOT_WORK_OUT»`.
+
+README's "Honest limitations" states this as intentional and points at the OS-level
+`allowWrite` sandbox as the real fix. Do not file it again as news.
+
+**Do not poke at this one blindly — it is the best-tested thing in the repo.**
+`tests/write-guard.test.ts` is 1026 lines, the largest test file by a factor of two, and it
+covers the cases that look like holes. The single-argument forms, for instance: `uniq FILE`
+reads and prints, and `whatOnePieceWritesInto` :101 guards the last-path rule with
+`args.length > 1` precisely so that `uniq ${RAILS_FILE}` is allowed and
+`uniq /tmp/x ${RAILS_FILE}` is denied — both asserted, at test lines 802 and 829. Alias and
+shell-function redefinition, `awk` redirects inside a program string, `sed --in-place`,
+`find -delete`, `find -fprintf`, `sort -o`: all covered. **Grep the test file before filing
+anything about the write guard.** The real gaps are the four structural ones above, which the
+tests do not pretend to close.
+
+## Money
+
+**97–99% of every session's tokens are `cacheRead`.** Price is driven by *how many times a
+session is woken and on what context length*, not by output volume. This inverts most
+intuitions about what is expensive.
+
+    cacheRead  Opus $1.50/M   Sonnet $0.30/M   Haiku $0.10/M
+
+Measured on this fleet: one card on a session that started clean = 3.1M tokens. Cards taken
+one after another on a context nobody compacted = 11.9M average. **Compaction at hand-over is
+the single biggest lever**, which is why it moved from `dev` into `back`/`front`'s own skills.
+
+The longest skill is ~3,470 tokens ≈ under $1 across a whole night of the most expensive
+session — under 1% of that session's bill. **"Skills are too long, length is money" is wrong by
+two orders of magnitude.** It was removed from reflector's skill. The inversion that matters:
+a `references/` file that *is* read costs more than the same text in the skill, because it is
+read as a tool call on top of a context that already holds the skill.
+
+Two accounting surfaces that do not sum, and confusing them has cost an hour:
+
+    spentSinceThisFleetWasFirstStarted  :200  the ledger, includes ended sessions
+    spendingRanking()                         reads registry.all(), live rows only
+
+## Rate limits and the stop
+
+    stopFleetAtFiveHourPercent: 85
+    stopFleetAtWeeklyPercent:   90
+
+    stopTheFleetIfALimitSaysSo()  :1375  «if (this.theLimitHoldsTheFleetUntil > Date.now()) return»
+    letTheFleetBackWhenTheLimitResets()  :1402
+    releaseOnlyWhatTheLimitFroze()       :1409
+    holdOffUntilTheLimitLifts()          :1418
+
+Two readings are merged field by field in `rate-limits.ts:85` `«everythingEitherReadingKnows»`.
+Card #52 was exactly this: a percentage measured in one window was carried onto the next. Fixed
+in `ad56613` by `«theWindowItMeasuredHasSinceRolledOver»`, which compares how far the boundary
+moved against how much time passed. **Verified present at pin.**
+
+**Open, not filed:** `resumeEverything()` :548 clears `frozenByTheLimit` but does **not** clear
+`theLimitHoldsTheFleetUntil`. So an operator Resume during a limit hold unfreezes the sessions
+and re-enables `spawn()`, while `stopTheFleetIfALimitSaysSo` stays disarmed by its own first
+line until the deadline passes. Permissive-with-the-guard-down. This is the substance of the
+operator question I have drafted and not sent. Changing it requires inverting
+`tests/stop-at-the-limit.test.ts:122`, which asserts the current behaviour on purpose.
+
+## The four tunables
+
+`src/timings.ts`. Bounds are enforced, out-of-range values are clamped, not rejected.
+
+    parkAfterIdleSeconds     90    20 .. 86400   0 allowed (off)
+    nudgeAfterQuietSeconds   30    15 .. 86400   0 allowed (off)
+    compactAtPercent         75    40 .. 95      0 NOT allowed
+    guardianVerdictSeconds  420    60 .. 3600    0 NOT allowed
+
+## How to research this cheaply
+
+**The test suite is the harness.** Tests build a real `Registry` on a `mkdtempSync` path, a
+fake `FleetApi` cast `as unknown as FleetApi`, and call `mintFleetServerBoundTo`. No model, no
+money, no fleet. `tests/one-per-role.test.ts:20-58` is the cleanest template; `tests/grants.ts`
+gives `NOTHING_GRANTED` and `granted({…})`.
+
+Calling a tool directly, from `one-per-role.test.ts:68`:
+
+    const registered = (server.instance as unknown as { _registeredTools: Registered })._registeredTools;
+    const answered = await registered[name].handler({ …args }, {});
+
+**Stands, by cost:**
+
+    npm run demo:blocked-tools   ONE real session. Spends. Proof a refusal is the CLI's.
+    npm run watch                THREE real sessions, cheap model, tight budgets. Spends.
+    npm run demo:guardian        ONE real session + synthetic refusal. Spends.
+    src/demo/panel-stand.ts      fake supervisor, NO model. Free.
+    src/demo/trouble-stand.ts    every failure state on one page. Free.
+
+**A session with no prompt costs nothing and still answers control requests.** That is the
+instrument for any "does the SDK actually do X" question — see the researcher role's
+`references/probing.md`. Two rules learned expensively: do not wait for `init` in a directory
+the CLI has not onboarded (it never arrives — poll with a deadline), and do not read a status
+once (servers say `pending` for the first seconds).
+
+**Reading what happened:** `.silicyte/activity.log` for the human narrative,
+`.silicyte/fleet.log` for the supervisor's own console, `.silicyte/panel/*.transcript.jsonl`
+for what the panel kept, `~/.claude/projects/…/*.jsonl` for the real conversation.
+`git log --oneline` in the fork's `workspace/` for what the fleet changed about itself.
+
+    npm test        writes to a file and check $? — NOT `| tail`, that reports tail's code
+    npm run lint
+    npm run typecheck
+    npm run doctor
+
+## Soft spots — where to dig
+
+Ranked by how much they would explain if true.
+
+1. **Compaction is a message nobody confirms.** `queueCompaction()` :1015 is literally
+   `this.send(sid, '/compact …')`. `self_compact` replies "Compaction queued" — a promise
+   nobody keeps or checks. No `compacted` event appeared in `fleet.log` for an entire run.
+   Worse: `compactionRequested` is added at :1517 and deleted **only** on `case 'compacted'`
+   :1292. A cancelled automatic compaction leaves the sid stuck in that set forever, silently
+   and permanently disabling threshold compaction for that session. Candidate explanation for
+   37M tokens / $133 on one session at `compactAtPercent: 40`. **Card #55. Verified still
+   present at pin.** The two causes share one symptom — an empty 0-char report — and are
+   indistinguishable from outside.
+
+2. **43 swallowed `catch {}` blocks** across `src/`. No `as any`, no `@ts-ignore`, no
+   `eslint-disable` anywhere — the codebase is otherwise strict. So the catches are the
+   accepted escape hatch, and they are concentrated exactly where persistence and probing
+   happen: `workspace.ts` 6, `supervisor.ts` 6, `connectors.ts` 4, `self-restart.ts` 3,
+   `supervisor-messages.ts` 3. **Every "the state file just didn't have it" mystery ends in
+   one of these.** `operator-questions.ts` and `spending.ts` at least carry an
+   `alreadySaidItCannotBeWritten` flag; most do not.
+
+3. **20 `void this.…` fire-and-forget calls in `supervisor.ts`.** `no-floating-promises` is on,
+   so each one was a deliberate `void`. Several sit on failure paths —
+   `void this.recoverFromFailedTurn` :1285, `void this.halt` :1307,
+   `void this.handleDowngrade` :1311. Nothing in `src/` registers `unhandledRejection` (only
+   SIGINT/SIGTERM, `start.ts:134`), so on Node's default that is **not a swallowed error — it
+   takes the supervisor process down**, and `supervised.ts` brings it back up as if it had
+   crashed. A failure inside failure recovery therefore looks like an unexplained restart.
+   Worth staging deliberately: reject one of these and watch what the operator actually sees.
+
+4. **The spend baseline ordering.** README admits it: the baseline advances in `drainIntoBus`'s
+   `finally`, and moving it earlier double-counts. No behavioural test can catch the regression
+   because the suite drives a fake `SessionHandle` with no mid-drain moment. Stated honestly;
+   still a landmine.
+
+5. **`supervisor.ts` is 1773 lines and holds ~25 private fields of mutable coordination state**
+   — `compactionRequested`, `clearWhenTheTurnEnds`, `parking`, `resuming`, `reloadWhenQuiet`,
+   `stoppedOnPurpose`, `frozenByTheLimit`, `toldTheOperatorItReadsLow`, `idleSince`,
+   `humanOutbox`, `reportsHeldUntilUnfreeze`, … Each is a Set or Map keyed by sid, each added
+   in one place and removed in one or two others. **Defect #1 is exactly this shape, and it is
+   unlikely to be the only one.** A systematic sweep — for every such field, list add sites and
+   delete sites, and ask what happens if the delete never fires — is the highest-yield audit
+   available here and has not been done.
+
+6. **`app.html` is 2683 lines with 120 functions and no module boundary.** Everything the
+   panel renders is agent-written and untrusted; `escapeHtml` at :893 is the only defence and
+   it is used by convention, not by structure. A new render path that forgets it is a defect of
+   the same size whether or not anything exploits it today.
+
+7. **Test residue pollutes the product repo.** Quarantine tests have left 32 `silicyte/worker-*`
+   branches and 8 worktrees under `/tmp` and `/var/folders`. Verified none held unique commits;
+   deleted once, will come back. Not filed.
+
+## Traps that have already cost time
+
+- `npm test | tail` reports **tail's** exit code. Write to a file and check `$?`.
+- `${PIPESTATUS[0]}` is empty in zsh — zsh uses `$pipestatus[1]`.
+- `maxTurns` / `budgetUsd` are lifetime caps on the whole `query()`, not per-turn brakes, and
+  `recoverFromFailedTurn` returns early for non-root sessions. They are not a spending control.
+- The absence of a tool call is not proof a block worked. **Check timestamps** — a tools list
+  logged before a fix landed proves nothing. This nearly produced a wrong report on card #54.
+- A test may assert the behaviour you are about to "fix". `tests/stop-at-the-limit.test.ts:141`
+  deliberately holds the fleet on a past `resetsAt`. Read the test before changing the code.
+- A stale registry row restored from disk has caused three separate failures to start. When the
+  fleet comes up wrong, `registry.json` is the first file to read.
+- `/compact` typed with a Cyrillic `с` does not fire and gives no error.
+
+## Keeping this file honest
+
+Re-verify before trusting, in this order:
+
+1. `git -C <product> log --oneline -1` and `git -C <fork> log --oneline -1` against the pin above.
+2. For any anchor used in an argument, grep the `«»` text. If it does not match, the section
+   is stale — fix it in place rather than working around it.
+3. When a soft spot is fixed, do not delete it. Move it to a closing line saying which commit
+   fixed it. The list of things that were once wrong is the most reusable thing here.
