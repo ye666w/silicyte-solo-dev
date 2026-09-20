@@ -289,23 +289,36 @@ was `af2b817`. `halt()` is the pattern with no window — it sets `haltRequiring
 and every reader keys on that. When adding state a guard reads, ask whether it is set by the
 **decision** or by the **work the decision causes**. Only the first is safe to guard on.
 
-**Still open, and orders of magnitude worse than the one `af2b817` closed. Two ways in, one hole.**
-`spawn()` :209 keys on `frozenByTheLimit.size`, which `stopTheFleetIfALimitSaysSo` fills from what
-`claimEverythingForFreezing` actually claimed — `live().filter(status !== 'frozen')`. So:
+**Closed by `1f9dbac`, and the operator's ruling behind it is the durable part.** `spawn()` used
+to key on `frozenByTheLimit.size`, the set an async freeze fills in, which is empty in two
+different situations — when there was nothing left to freeze (everything already `frozen` after a
+Stop or an incident) and after a Resume cleared it. Either way spawn was open for the whole hold,
+up to five hours, against the 10 ms window `af2b817` closed. Both now key on
+`theLimitHoldsTheFleetUntil`, the synchronous decision. So does `applyVerdict`.
 
-  **Nothing left to freeze.** If every live session is already `frozen` when the limit trips —
-  after an operator Stop, or during an incident freeze — the claim is empty, `frozenByTheLimit`
-  stays empty, and `spawn()` is open for the entire hold. Up to five hours, not ten milliseconds.
-  **Resume during a hold.** `resumeEverything()` :548 clears `frozenByTheLimit` and does **not**
-  clear `theLimitHoldsTheFleetUntil`, so `stopTheFleetIfALimitSaysSo` stays disarmed by its own
-  first line and never refills the set. Same open spawn, same rest of the hold.
+**The ruling: a stop for our own ceiling and a stop because the account is out are different
+stops, and Resume means different things in each.**
 
-Both were found independently — the first by `back` while fixing `af2b817`, which left it out
-deliberately, the second here. Both are blocked on the same operator decision: **does an
-operator's Resume clear the limit deadline, or only unfreeze what the limit froze?** Answer that
-and both close together. Changing the second requires inverting
-`tests/stop-at-the-limit.test.ts:122`, which asserts the current behaviour on purpose — read the
-test before touching the code.
+  **Our own ceiling** (`stopFleetAtFiveHourPercent` / `stopFleetAtWeeklyPercent`). Resume is the
+  operator deciding to spend the rest of the window. The deadline is cleared and
+  `spendingThisWindowOutUntil` holds the ceiling off until that window rolls over. Deliberately
+  **not** a re-arm — re-arming trips again within seconds and makes the button a lie. The ceiling
+  comes back with the next window.
+  **The account itself refused.** Resume cannot help; the API refuses whoever asks. The deadline
+  is kept, nothing is unfrozen, and the fleet wakes itself at the reset via
+  `letTheFleetBackWhenTheLimitResets`. The operator is told when that is.
+
+Telling them apart needed `theAccountItselfRefused` in `rate-limits.ts`: `limitsTellingTheFleetToStop`
+only ever compared percentages, so an account that refused outright stopped the fleet only
+incidentally, when a configured threshold happened to trip on the same window. It is scoped to
+`WINDOWS_COVERING_THE_WHOLE_ACCOUNT` so an exhausted `model_scoped:` limit does not stop a fleet
+that is not on that model.
+
+The test that guards the first half is `tests/stop-at-the-limit.test.ts:261`, and it uses the
+cheap-refusal trick: `spawn({role: 'nobody-declared-this'})` answers "close to its limit" while
+the guard is shut and "is not declared in the config" once it opens, with no process ever started.
+It goes red on the guard change alone and green again once Resume clears the deadline — which is
+how the intermediate state was caught rather than shipped.
 
 ## The four tunables
 
