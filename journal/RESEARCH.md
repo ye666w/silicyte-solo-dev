@@ -442,6 +442,25 @@ survive checking, and two were wrong in the direction that would have caused a w
 - `fleet_reload_skills` has no verb check where its neighbours do (`fleet-mcp.ts:246`). It *does*
   check the subtree. Verified as a consistency point with no consequence.
 
+## Landing
+
+    src/landing.ts          «export class LandsWorkOnTheMainBranch»
+      fetch()   the supervisor's, in the SHARED checkout. Every worktree of that
+                repository sees it: they share one object store and one set of refs.
+      land()    refuses unless the branch already contains the remote main
+                                «does not contain ${upstream}»
+                so a conflict is never the supervisor's; it goes back to the session
+                with the reason, and the refusal doubles as the fetch.
+      the injected RanCommand is what makes all of it testable without a remote.
+
+    supervisor.landTheWorkOf(sid, repo?)    «private whereThatWouldLand»
+      repo left out  → the session's own branch, silicyte/<sid>, in config.repos[0]
+      repo 'journal' → the workspace repository, branch HEAD; no session has a branch
+                       there, and without this a closed sandbox would leave sessions
+                       able to ship code and unable to write down what they learned.
+
+    the tool takes NO session id — it lands the caller's branch and nothing else.
+
 ## The outer ring: everything the spine section does not cover
 
 Read 2026-09-20 at `55ac66d`-`fd28608`, all of it verified by hand rather than taken from a
