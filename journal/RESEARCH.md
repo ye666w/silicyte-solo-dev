@@ -736,13 +736,24 @@ Ranked by how much they would explain if true.
    Now one `MODEL_FOR_WRAPPER_OWNED_ROLES` in `types.ts`, beside `MODELS_THE_CODE_KNOWS`, with
    a test that the name is in that list at all.
 
-   Settled, and worth the two minutes it cost: the fleet runs `claude-opus-5` and these two run
-   `claude-opus-4-8` at the same price per token, so it is not a cost choice — and it is not
-   staleness either. Asked (`e4c55abc`) and the operator said it is deliberate, without giving a
-   reason. **Do not "fix" it.** That decision now lives in an assertion in
-   `tests/model-choices.test.ts`, because comments are banned here and it had no other home; a
-   session that changes the value has to disagree with it on purpose. This is the second time on
-   this product that "nobody would deliberately do that" was wrong.
+   Settled, and the reason is worth knowing on its own. **`claude-opus-4-8` is where classifier
+   fallback stops.** `bus.ts:166` turns a classifier refusal into `retriedOnFallbackModel` with
+   an `originalModel`, a `fallbackModel` and `swapsSessionModel`; `supervisor.ts:841` changes
+   the session's model when the last two are set. There is nothing beneath this model to swap
+   in, so a session on it stays on it. The guardian scrubs after incidents under
+   `bypassPermissions` with no network, and the setup session runs the interview — neither may
+   be moved onto another model mid-run without anyone choosing that. It is not age and not cost
+   (same price as `claude-opus-5`).
+
+   The constant is `MODEL_NOT_SWAPPED_WHEN_THE_CLASSIFIER_TRIPS` in `types.ts` (`72d01ed`), and
+   the name is deliberately the whole record: raising it to a newer model now contradicts the
+   name rather than looking like a tidy-up. **Do not "fix" it.**
+
+   Two lessons, both from the operator inside ten minutes. "Nobody would deliberately do that"
+   has now been wrong twice on this product. And an assertion written to carry knowledge that
+   belongs in a name is a workaround for the comment ban, not a test — this codebase puts it in
+   the identifier (`refuseAWriteGrantNoRoleWillBeGiven`, `theWindowItMeasuredHasSinceRolledOver`)
+   and so should you.
 
 ## Traps that have already cost time
 
