@@ -707,14 +707,34 @@ Ranked by how much they would explain if true.
    panel renders is agent-written and untrusted; `escapeHtml` at :893 is the only defence and
    it is used by convention, not by structure. A new render path that forgets it is a defect of
    the same size whether or not anything exploits it today.
+   Its one `<script>` is parsed by `tests/panel-script.test.ts` since `5cec1f8`, which closes a
+   different hole in the same file: a syntax error there is a blank dashboard, and the three
+   tests that opened the page all read it as text. That check says nothing about escaping.
 
 7. **Test residue pollutes the product repo.** Quarantine tests have left 32 `silicyte/worker-*`
    branches and 8 worktrees under `/tmp` and `/var/folders`. Verified none held unique commits;
    deleted once, will come back. Not filed.
 
+8. **The two sessions the product spawns itself are pinned a model generation back, and the
+   constant that does it is named as if it were the fleet's default.** `guardian.ts:5`
+   `export const DEFAULT_MODEL = 'claude-opus-4-8'`, used only by `guardianProfile`;
+   `setup.ts:21` `const SETUP_MODEL = 'claude-opus-4-8'`, its own independent copy of the same
+   string. The fleet itself runs `claude-opus-5` (`workspace/fleet.config.ts`), and the two
+   cost the same per token — so this is not a cost choice, it is a literal nobody revisited.
+   Two separate defects: the guardian and setup run on an older model than everything they
+   watch, and `DEFAULT_MODEL` exported from `guardian.ts` is the same class of lying name as
+   `rec.branch` was — nothing else defaults to it. Checked 2026-09-21, not filed, not fixed.
+   `MODELS_THE_CODE_KNOWS` in `types.ts` (`06dc443`) is now the place these would refer to.
+
 ## Traps that have already cost time
 
 - `npm test | tail` reports **tail's** exit code. Write to a file and check `$?`.
+- The panel's strings are **not** in `src/web/`. They are `locales/en.json` and `locales/ru.json`
+  at the repo root; `app.html` only asks for keys. `tests/locales-agree.test.ts` enforces that
+  both files carry the same keys and that every literal `t('...')` key exists — template keys
+  like `` t(`effort.${level}`) `` are invisible to it.
+- Only `data-i18n` and `data-i18n-title` are applied (`applyStaticText`). There is no
+  `data-i18n-placeholder`; a placeholder needs its own line, or a prefilled value instead.
 - `${PIPESTATUS[0]}` is empty in zsh — zsh uses `$pipestatus[1]`.
 - `maxTurns` / `budgetUsd` are lifetime caps on the whole `query()`, not per-turn brakes, and
   `recoverFromFailedTurn` returns early for non-root sessions. They are not a spending control.
