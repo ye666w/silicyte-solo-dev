@@ -487,6 +487,13 @@ Ranked by how much they would explain if true.
   that checkout is pulled. It can sit many commits behind while you keep landing, which means
   the fleet runs code you fixed hours ago. `git log HEAD..origin/main` in that checkout is the
   one-line check for how stale the running fleet is.
+- **Open question, not yet a defect:** `isOrchestratorsOwnSkill` (`src/workspace.ts:63`) compares
+  names with `Array.includes`, which is case-sensitive, against `['guardian', 'setup']`. macOS
+  filesystems are case-insensitive by default, so a fork skill directory named `Guardian` is the
+  *same directory* as `guardian` while reading as an ordinary fork skill. I have not established
+  what the right behaviour is, so `tests/workspace.test.ts` deliberately does not assert the
+  current one — asserting it would turn an open question into a promise. Worth settling before
+  anyone relies on the reserved list as a boundary.
 - **There is no local `main` to fast-forward from a worktree.** `git branch -f main <sha>` dies
   with "cannot force update the branch 'main' used by worktree at …/silicyte" — the orchestrator's
   own checkout has it checked out. Landing is `git push origin HEAD:main`, full stop. Do not
