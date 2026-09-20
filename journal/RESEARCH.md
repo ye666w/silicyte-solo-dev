@@ -398,6 +398,34 @@ for what the panel kept, `~/.claude/projects/…/*.jsonl` for the real conversat
     npm run typecheck
     npm run doctor
 
+## Reported in the second pass, not yet checked
+
+Findings from six workers reading the files this map had never anchored, 2026-09-20 at `55ac66d`.
+**None of these has been verified by anyone.** Half of the batch they came in with did not
+survive checking, and two were wrong in the direction that would have caused a worse defect if
+"fixed". Treat every line here as a lead, not a fact. Check first.
+
+- `close_operator_question` takes an id and does not check who filed it (`fleet-mcp.ts:308`, and
+  `OperatorQuestions.close` takes no asker either). Same shape for `ask_operator`'s `continues`:
+  `operator-questions.ts:104` looks the thread up by id without comparing `askedBy`. **I did
+  verify these two reads myself** — what is unchecked is whether it matters, and today it cannot
+  be reached: only sessions with `mayAskTheOperator` get the tools, and this fleet has one.
+- `incident.ts:104,111` — if `halt()` or `applyVerdict()` throws, `closeIncident()` never runs and
+  `handling` stays non-null, so every later `open()` returns immediately. A freeze nothing can
+  lift. Wants a `finally`. Unverified.
+- `worktree.ts:82` — recreating a session whose branch survived a crash runs
+  `git worktree add -b` against an existing branch and fails. Unverified.
+- `worktree.ts:95` — `git worktree remove --force` discards uncommitted work. Whether that is
+  reachable outside a deliberate close is the question, not the flag. Unverified.
+- `operator-questions.ts:179` — a malformed state file is caught and every stored question is
+  dropped in silence. Same class as the ten silent writes; this one is a silent *read*. Unverified.
+- `verdict.ts:21` — JSON candidates are tried newest-first, so a truncated object could parse
+  before the complete one. Unverified.
+- `push-stream.ts` — two concurrent consumers would share one waiting-reader queue. Whether any
+  code creates two is unasked. Unverified and probably unreachable.
+- `fleet_reload_skills` has no verb check where its neighbours do (`fleet-mcp.ts:246`). It *does*
+  check the subtree. Verified as a consistency point with no consequence.
+
 ## Soft spots — where to dig
 
 Ranked by how much they would explain if true.
