@@ -736,9 +736,13 @@ Ranked by how much they would explain if true.
    Now one `MODEL_FOR_WRAPPER_OWNED_ROLES` in `types.ts`, beside `MODELS_THE_CODE_KNOWS`, with
    a test that the name is in that list at all.
 
-   Still open: the fleet runs `claude-opus-5` and these two run `claude-opus-4-8` at the same
-   price per token, so it is not a cost choice. Whether that is deliberate is the one thing the
-   code cannot say — no comment is possible here and no test asserted it either way.
+   Settled, and worth the two minutes it cost: the fleet runs `claude-opus-5` and these two run
+   `claude-opus-4-8` at the same price per token, so it is not a cost choice — and it is not
+   staleness either. Asked (`e4c55abc`) and the operator said it is deliberate, without giving a
+   reason. **Do not "fix" it.** That decision now lives in an assertion in
+   `tests/model-choices.test.ts`, because comments are banned here and it had no other home; a
+   session that changes the value has to disagree with it on purpose. This is the second time on
+   this product that "nobody would deliberately do that" was wrong.
 
 ## Traps that have already cost time
 
