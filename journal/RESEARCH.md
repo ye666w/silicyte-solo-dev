@@ -487,6 +487,15 @@ Ranked by how much they would explain if true.
   that checkout is pulled. It can sit many commits behind while you keep landing, which means
   the fleet runs code you fixed hours ago. `git log HEAD..origin/main` in that checkout is the
   one-line check for how stale the running fleet is.
+- **`SessionState` owns a collection by holding a reference to it, so the field pointing at it
+  must be `readonly`.** `mapBySid`/`setOfSids` hand back a Map/Set and capture *that object* in
+  the `forget` closure. Reassigning the field (`this.x = new Set()`) leaves the mechanism
+  emptying the old object while the code fills a new one — silently, with no observable symptom,
+  because `whatIsStillHeldAbout` inspects the object SessionState was given and therefore answers
+  "not held". It is wrong in the reassuring direction. All thirteen declarations are `readonly`
+  as of `375a575`, so the compiler refuses it (TS2540), and `tests/session-state.test.ts` refuses
+  a newly added declaration that is not. Empty in place with `.clear()`. This bit once, in
+  `frozenByTheLimit`, five sites, shipped and landed before it was noticed.
 - **Open question, not yet a defect:** `isOrchestratorsOwnSkill` (`src/workspace.ts:63`) compares
   names with `Array.includes`, which is case-sensitive, against `['guardian', 'setup']`. macOS
   filesystems are case-insensitive by default, so a fork skill directory named `Guardian` is the
