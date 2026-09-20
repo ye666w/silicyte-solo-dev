@@ -21,8 +21,8 @@ const config: FleetConfig = {
   maxSessions: 7,
   connectors: [],
   railsFrom: { remote: 'origin', branch: 'main' },
-  stopFleetAtFiveHourPercent: 85,
-  stopFleetAtWeeklyPercent: 90,
+  stopFleetAtFiveHourPercent: 95,
+  stopFleetAtWeeklyPercent: 100,
 
   roles: {
     root: {
