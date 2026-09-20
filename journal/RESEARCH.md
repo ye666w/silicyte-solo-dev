@@ -5,21 +5,23 @@ it deliberately carries no line numbers. This file is the opposite trade: it is 
 mine, and it carries anchors, measurements and suspicions — the things that go stale but pay
 for themselves while they are fresh.
 
-**Pinned to:** product and this fork both at `8c9b6da`, 20.09.2026. Re-checked and repinned after the day's 17 commits: every numbered anchor below had moved and was corrected by its own grep string, which is what they are for.
+**Pinned to:** product and this fork both at `157de77`, 20.09.2026.
 **Lives at** `workspace/journal/RESEARCH.md` — inside the workspace repo, so it is versioned with
 the config and the skills and survives every restart and every clear. It sits under `journal/`
 rather than beside `fleet.config.ts` for a blunt reason: that is the only place in the workspace a
 session is permitted to write, and a reference nobody may update rots.
-Every line number below is followed by a grep anchor in `«»`. If the number is wrong, the
-anchor still finds it. If neither works, the section is stale — say so rather than guessing.
+If an anchor finds nothing, the section is stale — say so rather than guessing at what replaced it.
 
-**Checking the whole file is one script, so do it rather than trusting it.** Pull every
-`:<number> «<anchor>»` pair out of this file, search `src/**/*.ts` for each anchor, and report
-any whose number does not match where the anchor actually is. Run it **from your own worktree**,
-never from the orchestrator root — there `src` means the rails and the write guard refuses the
-command outright (correctly; that is `e1bb9b8`). On 20.09.2026 this found 10 moved and 1 deleted
-out of 11 after a single day's commits: line numbers here rot in hours, anchors do not, and the
-whole point of the pairing is that the second repairs the first.
+**The anchor in `«»` is the address. There are no line numbers beside it any more, and that is
+deliberate.** This file carried both for a while; on 20.09.2026 every one of its numbers went
+stale twice in the same afternoon — 11 of 11, then 12 of 12, a few hours apart — because
+`supervisor.ts` is edited constantly and every edit moves everything below it. The grep string
+never moved once. Carrying a number beside it bought nothing and created a chore that had to be
+done again by the evening, so the number is gone: `grep -n` the anchor and the line is yours,
+current by construction.
+
+A few bare numbers survive below in prose. Treat every one of them as approximate, and if it
+disagrees with reality believe the file.
 
 ## The three checkouts
 
@@ -81,45 +83,45 @@ running:
 
 ## The spine: how a session is born, lives and dies
 
-All in `src/supervisor.ts` unless noted. 1823 lines; this is the whole product's centre of mass
-(fan-in 32, second only to `types.ts` at 61).
+All in `src/supervisor.ts` unless noted. It is the whole product's centre of mass and by some
+way its largest file; `wc -l` it rather than trusting a number written here.
 
-    spawn()                    :230   «async spawn(req: SpawnRequest»
-      refuses while the limit holds the fleet     :231  «this.theLimit.holdsTheFleet()»
-      refuses if sessionsTheCapCounts >= cap      :239
-      refuses if refusalIfTheRoleIsFull           :247 / :293  «refusalIfTheRoleIsFull(role: string)»
-      worktrees.create → branch silicyte/<sid>    :251
-      registry.add, then launchProcess            :271 / :277
-      drainIntoBus (fire and forget)              :285  «void this.drainIntoBus»
+    spawn()                       «async spawn(req: SpawnRequest»
+      refuses while the limit holds the fleet       «this.theLimit.holdsTheFleet()»
+      refuses if the machine is already full         «>= this.sessionCap»
+      refuses if refusalIfTheRoleIsFull             «refusalIfTheRoleIsFull(role: string)»
+      worktrees.create → branch silicyte/<sid>       «this.worktrees.create(sid»
+      registry.add, then launchProcess               «rec.handle = this.launchProcess(»
+      drainIntoBus (fire and forget)                «void this.drainIntoBus»
 
-    launchProcess()            :310   «private launchProcess»
+    launchProcess()               «private launchProcess»
       assembles: skill + briefing + mcpServers + disallowedTools + sandbox
 
-    drainIntoBus()             :406   «for await (const msg of rec.handle!.query)»
+    drainIntoBus()                «for await (const msg of rec.handle!.query)»
       the ONLY place SDK messages enter. finally: advances the spend baseline.
       README calls this ordering load-bearing and untested — see Soft spots.
 
-    react(e)                   :1270  «private react(e: FleetEvent)»
+    react(e)                     «private react(e: FleetEvent)»
       the single switch every event passes through. Read this before theorising
       about what happens after anything.
 
-    routeReportToItsReader()   :1366  «private routeReportToItsReader»
+    routeReportToItsReader()     «private routeReportToItsReader»
       fires on EVERY result, unconditionally. An agent cannot choose not to report.
       Any skill rule saying "do not send interim reports" is unenforceable.
 
-    park / unpark              :953 / :981   «private async park»
+    park / unpark                 «private async park»
       idle → process stopped, memory freed, transcript kept. parkAfterIdleSeconds: 90.
 
-    clear()                    :1069  «async clear(sid»
+    clear()                      «async clear(sid»
       the one thing that throws a conversation away. Refuses a quarantined session by name.
 
-    kill / closeOne            :523 / :530   «private async closeOne»
+    kill / closeOne               «private async closeOne»
 
-Death paths that are not closing on purpose: `recoverFromFailedTurn` :858,
-`reportUnexpectedDeath` :429, `recoverManager` :452, `halt` :1247, `freezeEntireFleet` :1172,
-`quarantineForIncident` :1196.
-`freezeEntireFleet` :1172 splits into `claimEverythingForFreezing` :1176 (synchronous, sets the
-statuses) and `interruptWhatWasClaimed` :1185 (awaits the IPC interrupts) — `af2b817` split them because `spawn()`
+Death paths that are not closing on purpose, each greppable by its own name:
+`recoverFromFailedTurn`, `reportUnexpectedDeath`, `recoverManager`, `halt`, `freezeEntireFleet`,
+`quarantineForIncident`.
+`freezeEntireFleet` splits into `claimEverythingForFreezing` (synchronous, sets the statuses)
+and `interruptWhatWasClaimed` (awaits the IPC interrupts) — `af2b817` split them because `spawn()`
 gates on a set that was only filled after the await, leaving a window where a session could still
 be started into a freeze it would never be released from.
 
@@ -275,7 +277,7 @@ Two accounting surfaces that do not sum, and confusing them has cost an hour:
     stopFleetAtFiveHourPercent: 85
     stopFleetAtWeeklyPercent:   90
 
-    stopTheFleetIfALimitSaysSo()  :1410  «private async stopTheFleetIfALimitSaysSo»
+    stopTheFleetIfALimitSaysSo()    «private async stopTheFleetIfALimitSaysSo»
     the hold itself now lives in `src/limit-hold.ts` (68cc3cd): how long, why, what it said,
     whether the operator is spending the window out, how long nothing is nudged. The five
     fields that used to sit on the supervisor are gone from it.
