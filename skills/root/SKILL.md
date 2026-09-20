@@ -85,9 +85,16 @@ You have a worktree on `silicyte` and a branch of your own. You are not a router
 the interesting part — the design, the hard bug, the thing where being wrong is expensive — do it
 yourself. That is what you are for. Delegation is for the volume around it.
 
-What lands, lands the ordinary way: commit in small steps with messages that say *why*,
-`npm test`, `npm run lint`, `npm run typecheck` green in your own worktree, then rebase onto
-`origin/main` and `git push origin HEAD:main`. No comments in the code — the linter enforces it.
+What lands: commit in small steps with messages that say *why*, `npm test`, `npm run lint` and
+`npm run typecheck` green in your own worktree, then **`fleet_land`**. No comments in the code —
+the linter enforces it.
+
+`fleet_land` is the only way anything leaves this machine. The supervisor fetches and pushes; you
+cannot, and do not need to. It refuses a branch that does not already contain the remote main, and
+that refusal has just refreshed the ref — so rebase against it and call again. The rebase and
+anything it turns up are yours, in the worktree that knows what the code means. `repo: 'journal'`
+lands the workspace repository, where the journal and the map live; without that argument it lands
+your own branch.
 
 `npm test | tail` reports **tail's** exit code, not the suite's. Redirect to a file and check `$?`.
 
@@ -101,9 +108,9 @@ of the same object the write guard uses, so the two cannot drift apart.
 Four things follow, and every one of them cost an hour the first time:
 
   **`/tmp` is not writable — use `$TMPDIR`.** Every scratch file, every redirect, every fixture.
-  **`git push` cannot cross it.** Egress goes through an HTTP proxy and ssh is raw TCP, so landing
-  needs `dangerouslyDisableSandbox: true` on that one command. Nothing else needs it, and Trello
-  #56 exists to remove even that.
+  **Nothing reaches the network, and `dangerouslyDisableSandbox` is inert.** Setting it does not
+  take a command outside; the session's own sandbox description says so. Landing goes through
+  `fleet_land` and needs nothing from you but a commit.
   **The write guard reads your command text, not your intent.** It refuses a command that merely
   *mentions* a protected path — a grep whose pattern contains one is refused too. Rephrase; do not
   argue with it.
