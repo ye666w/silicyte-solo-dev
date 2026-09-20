@@ -434,6 +434,33 @@ Ranked by how much they would explain if true.
   refs moved. Give it a long timeout or background it deliberately, rather than reading the wait
   as a stuck prompt and killing it.
 
+## Resuming a session: two facts, both measured
+
+Both established here on 20.09.2026 with throwaway Haiku sessions, `maxBudgetUsd: 0.05`, by
+creating a session, then resuming it and asking about something only one side could know.
+
+**`resume` is not scoped to the working directory.** A session created with `cwd: A` resumes
+fine with `cwd: B`, keeps its whole conversation, and its transcript **stays in A's project
+directory** — B never gets one. `~/.claude/projects/<mangled-realpath>/<uuid>.jsonl`, and the
+mangling resolves symlinks, so `/var/folders/…` is stored as `-private-var-folders-…`.
+
+**`systemPrompt.snapshot` decides whether a resume can re-brief a session.**
+
+    snapshot: false   a new system prompt IS applied on resume
+    snapshot: true    frozen at creation; the new prompt is ignored
+    field omitted     behaves like true
+
+`launchProcess` passes `snapshot: rec.role === GUARDIAN_ROLE`, so **every ordinary role is
+re-briefed on every resume and Guardian deliberately is not.** That is what makes
+`apply_skill_changes` actually work — park, relaunch on the same conversation, new skill in the
+system prompt. If that flag ever flips to the default, skill rewrites would stop reaching running
+sessions silently, with the conversation intact and nothing to show it failed. Worth a test that
+nobody has written.
+
+The trap to know: asking a resumed session the same question it already answered proves nothing —
+the old answer is in the history and it will repeat it. Ask about a fact that exists **only** in
+the new system prompt.
+
 ## Keeping this file honest
 
 Re-verify before trusting, in this order:
