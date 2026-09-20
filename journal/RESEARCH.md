@@ -421,18 +421,90 @@ survive checking, and two were wrong in the direction that would have caused a w
   resumes, everything looks recovered, and the classifier-refusal path is dead until the process
   restarts, with no symptom but silence. Resuming now closes it. **A latch that is right to hold
   still needs somebody whose job is to let go.**
-- `worktree.ts:82` — recreating a session whose branch survived a crash runs
-  `git worktree add -b` against an existing branch and fails. Unverified.
-- `worktree.ts:95` — `git worktree remove --force` discards uncommitted work. Whether that is
-  reachable outside a deliberate close is the question, not the flag. Unverified.
-- `operator-questions.ts:179` — a malformed state file is caught and every stored question is
-  dropped in silence. Same class as the ten silent writes; this one is a silent *read*. Unverified.
-- `verdict.ts:21` — JSON candidates are tried newest-first, so a truncated object could parse
-  before the complete one. Unverified.
-- `push-stream.ts` — two concurrent consumers would share one waiting-reader queue. Whether any
-  code creates two is unasked. Unverified and probably unreachable.
+- `worktree.ts:82` — `git worktree add -b` against a branch that already exists fails, and
+  `removeKeepingBranch` keeps branches on purpose. Structurally true; **I could not construct the
+  path that reaches it**, since sids are not reused and the crash path does not remove worktrees.
+  Left alone rather than hardened on a hunch. If a session ever refuses to start with a branch
+  error, this is the line.
+- `worktree.ts:95` — `--force` discards uncommitted work, and it is reached from `closeOne`, which
+  is a deliberate close. The README says closing on purpose cascades; the flag is the decision,
+  not a bug. The crash path does not call it.
+- ~~`operator-questions.ts:179` — a malformed state file drops every question in silence~~ —
+  real, FIXED in `fd28608`. The write path had said so since `157de77`; the read path had not, and
+  a session that filed a blocking task waits for an answer nobody is coming to give.
+- ~~`verdict.ts:21` — candidates tried newest-first~~ — CHECKED, sound. The reverse is the
+  deliberate "the last thing it said is its conclusion", and `readVerdict` refuses anything
+  without a non-empty `negativeConstraintDescription`, so a truncated or incidental object does
+  not get through. Left alone.
+- ~~`push-stream.ts` — two concurrent consumers share one waiting-reader queue~~ — CHECKED,
+  unreachable. One is made per session at `launchProcess` and handed to `query({ prompt: input })`;
+  there is no second `for await` over it anywhere. True of the code and not worth defending.
 - `fleet_reload_skills` has no verb check where its neighbours do (`fleet-mcp.ts:246`). It *does*
   check the subtree. Verified as a consistency point with no consequence.
+
+## The outer ring: everything the spine section does not cover
+
+Read 2026-09-20 at `55ac66d`-`fd28608`, all of it verified by hand rather than taken from a
+report. Grep strings, not line numbers.
+
+    bus.ts
+      ingest(sid, msg)            «ingest(sid: string, msg: SDKMessage)»
+        sid is a PARAMETER the supervisor passes, never read off the message.
+        Dispatches on msg.type, then on subtype for type === 'system'.
+      emit()                      «for (const fn of this.listeners)»
+        already guards a listener that throws. History bounded since `c9a5c7d`.
+      toPercent / toMilliseconds  «A_READING_THIS_SMALL_COULD_BE_EITHER_UNIT»
+        these normalise the EVENT-side fields, which the SDK does not document.
+        The usage-API fields in rate-limits.ts are documented 0-100 and read raw.
+        The two are different APIs. Do not harmonise them. Tests say why.
+
+    web/server.ts
+      listens on the loopback address only        «this.http.listen(this.port, '127.0.0.1'»
+      and has NO authentication of any kind. Anything on the machine can call it.
+      the only consumer of bus.history()          «MAX_REPLAYED_EVENTS_PER_SESSION»
+        takes the last 120 for one session, so a bounded history costs it nothing.
+
+    fleet-mcp.ts
+      mintFleetServerBoundTo()    «export function mintFleetServerBoundTo»
+        every tool is built per session; what a role may do is decided here, once.
+      subtree rule                «refusalIfOutsideOwnSubtree»
+        applied to every session-id argument. Checked: no path skips it.
+      tool descriptions are built from the granted list at mint time, so a RESUMED
+      session can show an old description with new behaviour. Call it, read the reply.
+
+    incident.ts
+      open() latches              «if (this.handling) return»
+        and KEEPS the latch when the investigation ends in a halt — deliberate, so a
+        second refusal cannot start a second guardian. Covered by a test; do not
+        "fix" it with a finally. Released by resumeEverything since `ba15b28`.
+
+    verdict.ts
+      candidates = fenced block, then every balanced top-level object, reversed.
+      readVerdict refuses anything without a non-empty negativeConstraintDescription,
+      which is what makes the loose scan safe.
+
+    operator-questions.ts
+      ask({ continues })          «const continuing = params.continues»
+      close(id, askedBy)          «question?.askedBy !== askedBy»
+        a thread belongs to whoever opened it, and a task that is not yours is refused
+        in the same words as one that does not exist, so ids cannot be probed.
+
+    integrations.ts
+      secrets on disk at 0600, never handed back to the page.
+      deliver() checks the answer «refuseUnlessItWasAccepted»
+        fetch does not throw on an HTTP error; without this a wrong token read as success.
+      errors are filtered against the values actually stored «withoutSayingTheSecret»
+
+    worktree.ts
+      create()                    «'worktree', 'add', '-b', branch»  skips if the dir exists
+      removeKeepingBranch()       «'worktree', 'remove', '--force'»  the branch survives
+
+    session-state.ts
+      mapBySid / setOfSids with three lifetimes. 13 of the supervisor's 17 collection
+      fields go through it, which is why the coordination-state sweep found nothing.
+
+    push-stream.ts
+      one per session at launchProcess, single consumer via query({ prompt: input }).
 
 ## Soft spots — where to dig
 
