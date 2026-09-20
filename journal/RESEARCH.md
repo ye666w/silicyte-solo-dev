@@ -442,6 +442,31 @@ survive checking, and two were wrong in the direction that would have caused a w
 - `fleet_reload_skills` has no verb check where its neighbours do (`fleet-mcp.ts:246`). It *does*
   check the subtree. Verified as a consistency point with no consequence.
 
+## The sandbox, as of `59605a2`
+
+    src/sandbox.ts          «export function theSandboxASessionRunsIn»
+      enabled, failIfUnavailable  a sandbox that quietly did not apply would be worse
+                                  than none, because nobody would know
+      allowUnsandboxedCommands: FALSE since `365a312`. A session cannot mark a command
+                                as stepping outside; the parameter is inert, and the
+                                session's own sandbox description says so.
+      filesystem.allowWrite   built from the SAME WhereASessionWorks the write guard is
+                              given, so the two cannot drift apart
+      network                 undefined. A session is handed nothing of its own. What
+                              is left is whatever the CLI itself needs.
+
+    Writes are closed. READS ARE NOT — `denyOnly` of three paths, so a session reads the
+    whole machine. That is Trello #57, and it is deliberately not the same job as writes:
+    a missing write fails loudly with "Operation not permitted", a missing read returns
+    emptiness three levels down and looks like a bug in something else.
+
+    Measured from inside, after the flag came down:
+      git ls-remote origin, WITH dangerouslyDisableSandbox: true   refused by the proxy
+      curl https://github.com                                      still passes
+    So the remaining reach is HTTP through the CLI's own allowance. Narrowing that needs
+    `strictAllowlist`, and nobody has established whether web tools and MCP connectors
+    run through the same box. Measure before touching it.
+
 ## Landing
 
     src/landing.ts          «export class LandsWorkOnTheMainBranch»
