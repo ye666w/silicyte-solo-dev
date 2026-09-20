@@ -496,6 +496,30 @@ Ranked by how much they would explain if true.
   as of `375a575`, so the compiler refuses it (TS2540), and `tests/session-state.test.ts` refuses
   a newly added declaration that is not. Empty in place with `.clear()`. This bit once, in
   `frozenByTheLimit`, five sites, shipped and landed before it was noticed.
+- **`supervisor.ts` is big because orchestration is big, and cutting it further makes it worse.**
+  Measured 2026-09-20 at `68cc3cd`. Of its 44 fields, 17 are collaborator objects that are
+  already their own modules (bus, registry, spending, rateLimits, incidents, timings, worktrees,
+  rootTroubles, theLimit…), 13 are per-session collections owned by `SessionState`, 4 are timers,
+  and only 6 are loose scalars. There are 39 modules in `src/` and this file is what ties them
+  together.
+
+  The test for whether a cluster can leave: count the supervisor members it would still need
+  from outside. Measured, per candidate:
+
+      limits, the orchestration methods      74 lines   needs 10 outside
+      incident / quarantine                  77 lines   needs  9 outside
+      money / token polling                  53 lines   needs  6 outside
+
+  All three drag the registry, the bus and per-session state with them, so moving them relocates
+  the coupling instead of reducing it — "six files with the same defect", which the plan warned
+  about in exactly these words. **What extracts cleanly is pure decision state with no
+  per-session data.** That is why `limit-hold.ts` worked: five fields, nine rules, no sid
+  anywhere, 23 raw field touches became 13 named calls and the rules got their first direct
+  tests. It is also why the limits *methods* stayed behind.
+
+  So the rule for any future split here: extract the decision, never the orchestration, and
+  never anything keyed by sid (that belongs to `SessionState` — see the reference trap above).
+  If a candidate needs more than two or three supervisor members from outside, leave it.
 - **Open question, not yet a defect:** `isOrchestratorsOwnSkill` (`src/workspace.ts:63`) compares
   names with `Array.includes`, which is case-sensitive, against `['guardian', 'setup']`. macOS
   filesystems are case-insensitive by default, so a fork skill directory named `Guardian` is the
