@@ -91,7 +91,7 @@ Messages say why, not what. No comments in the code — the linter rejects them.
 Other sessions' branches are readable from where you stand: same repository, so
 `git show <branch>:<path>` and `git diff main...<branch>` work without leaving your directory.
 
-## `workspace/RESEARCH.md`
+## `workspace/journal/RESEARCH.md`
 
 If your task is about how silicyte itself works, read it first — it is the map of this codebase,
 with anchors into `src/`, where state lives on disk, and what is already known to be broken. It
