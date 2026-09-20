@@ -99,7 +99,7 @@ way its largest file; `wc -l` it rather than trusting a number written here.
 
     drainIntoBus()                «for await (const msg of rec.handle!.query)»
       the ONLY place SDK messages enter. finally: advances the spend baseline.
-      README calls this ordering load-bearing and untested — see Soft spots.
+      Ordering is load-bearing and now tested — `55ac66d`, tests/spending-survives.test.ts.
 
     react(e)                     «private react(e: FleetEvent)»
       the single switch every event passes through. Read this before theorising
@@ -455,10 +455,19 @@ Ranked by how much they would explain if true.
    crashed. A failure inside failure recovery therefore looks like an unexplained restart.
    Worth staging deliberately: reject one of these and watch what the operator actually sees.
 
-4. **The spend baseline ordering.** README admits it: the baseline advances in `drainIntoBus`'s
-   `finally`, and moving it earlier double-counts. No behavioural test can catch the regression
-   because the suite drives a fake `SessionHandle` with no mid-drain moment. Stated honestly;
-   still a landmine.
+4. **The spend baseline ordering — FIXED in `55ac66d`, and the reason it stayed open is worth
+   more than the fix.** The baseline advances in `drainIntoBus`'s `finally`; moving it earlier
+   double-counts, because the last usage a process reports is cumulative for that process. The
+   README said no behavioural test could catch it, since the suite drives a fake `SessionHandle`
+   with no mid-drain moment. **That was a fact about the one fake that existed, read as a fact
+   about fakes.** `aProcessWithOneLastReadingOnTheWayOut` is four lines: an async generator that
+   yields once and then reports usage while it is still being iterated. Two tests now hold the
+   ordering, and reintroducing the advance at the top of `drainIntoBus` fails both and nothing
+   else.
+
+   The general lesson, because this was not the only place it applies: **a claim that something
+   cannot be tested is usually a claim about the test harness that happens to exist.** Check what
+   the fixture actually does before believing it.
 
 5. **`supervisor.ts` is 1773 lines and holds ~25 private fields of mutable coordination state**
    — `compactionRequested`, `clearWhenTheTurnEnds`, `parking`, `resuming`, `reloadWhenQuiet`,
