@@ -447,13 +447,35 @@ Ranked by how much they would explain if true.
    have been the wrong fix. `38579d9` collapses whitespace in `queueCompaction`, so a long
    instruction arrives whole and on one line.
 
-   **Still open, measured 2026-09-20 on root itself, after `38579d9` was in the rails.** A
-   3.9 KB single-line instruction was queued and cancelled; a 1.4 KB one fired. The newline
-   fix cannot explain it, and the table above has 3.5 KB single-line firing. So either there
-   is a limit somewhere between 3.5 KB and 3.9 KB, or something in that particular text broke
-   the slash command. Two points is not a boundary. Until it is bisected, keep a compaction
-   instruction well under 3 KB, and check `self_context` on the next turn rather than trusting
-   "Compaction queued".
+   **The third round, 2026-09-20 evening, and the answer is now structural rather than
+   statistical.** Two more cancellations on rails that already carried `38579d9` (3.9 KB and
+   1.9 KB single-line; a 1.4 KB one in between fired). Length looked like the variable again.
+   It is not:
+
+       A worker read the shipped CLI and SDK bundles: no length cap on command text anywhere.
+       The validated limits in there are 65536 for scripts and 1024 for paths. Nothing near 4 KB.
+
+       The activity log for the 1.9 KB cancellation: the compaction turn ran at 20:48:02, ended
+       with a 0-char report and NO `compact` line, and the idle nudge arrived at 20:50:02 — two
+       minutes after the cancellation, so it cannot be the cause. I claimed it was. `send` marks
+       the session working and resets the quiet clock, and the nudge skips a fleet with anything
+       busy in it, so the guard I wrote for it was unreachable and its test passed without it.
+       Reverted in `14fb2cd`.
+
+       What the log does show beside the cancelled turn: `tools root-5cf1dd86 104 offered` at
+       20:48:02 and `59 offered` at 20:50:06. MCP servers dropping and reconnecting re-initialise
+       the session. **Best remaining suspect, and still only a suspect.**
+
+   **And none of it needed guessing in the first place.** `SDKStatusMessage` carries
+   `compact_result: 'success' | 'failed'` and `compact_error`. `bus.ts` reached that exact
+   message to read a busy flag off `status` and dropped both other fields on the floor; no line
+   in the codebase had ever mentioned either. Since `f368dcd` a refusal is an event, an alarm in
+   the activity log carrying the CLI's own reason, and the refused session is asked again at once
+   instead of waiting out a window it never used. **The next cancellation names its own cause.
+   Read `.silicyte/activity.log` for `compact refused` before theorising.**
+
+   Working rule until one of those lines appears: keep an instruction well under 3 KB and check
+   `self_context` on the next turn rather than trusting "Compaction queued".
 
    The flag that never cleared was real: `compactionAskedFor` now expires after two minutes
    (`be1e4f6`) instead of disabling threshold compaction for that session forever.
