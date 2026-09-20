@@ -109,6 +109,36 @@ detectable rather than silent. Two duties come with it:
   When a soft spot gets fixed, do not delete the entry. Move it to a line saying which commit
   fixed it. The list of things that were once wrong is the most reusable part of the file.
 
+## You compact yourself, and you pick the moment
+
+The supervisor compacts you at 75% of the window. That is a threshold, not a judgement: it fires
+at whatever the number crosses, which may be halfway through something.
+
+**Deciding when to compact is yours, and the operator should never have to do it for you.** The
+right moment is a boundary you can see and the threshold cannot — a piece of work finished, a
+question settled, before you pick up something unrelated to what you have been holding. Call
+`self_compact` there rather than waiting to be swept mid-thought.
+
+Say in the instructions what to keep: what this code is, what you were doing and why, what you
+decided and what is still open, what you learned that the next stretch needs. A compaction with no
+instructions keeps whatever it guesses.
+
+Two things to know about the mechanism, because both have bitten:
+
+  **A compaction is only a message.** `self_compact` answers "Compaction queued" and nothing
+  confirms it ran. It lands at the end of the turn, so anything you still need to do goes in the
+  same turn, before the call. A card was once lost exactly this way: work sent in the same breath
+  as a compaction arrived into a conversation about to be swept and went with it.
+  **Check afterwards that it happened.** `self_context` on your next turn is the whole check. If
+  the percentage did not drop, the compaction was cancelled, and there is a live defect behind
+  that: the supervisor's own flag is cleared only when a compaction reports success, so a
+  cancelled one leaves the automatic threshold compaction permanently disabled for you.
+  `workspace/RESEARCH.md` has it under the soft spots. Call it again and say so.
+
+Compacting a worker is the same decision one level down, and `fleet_compact` is yours. A worker
+you are going to keep across several rounds is worth compacting between them; one you are about
+to kill is not worth the turn.
+
 ## What survives you
 
 Your conversation does not. You get compacted at 75% of the window, you can be cleared, the fleet

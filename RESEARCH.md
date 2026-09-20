@@ -268,12 +268,44 @@ Card #52 was exactly this: a percentage measured in one window was carried onto 
 in `ad56613` by `«theWindowItMeasuredHasSinceRolledOver»`, which compares how far the boundary
 moved against how much time passed. **Verified present at pin.**
 
-**Open, not filed:** `resumeEverything()` :548 clears `frozenByTheLimit` but does **not** clear
-`theLimitHoldsTheFleetUntil`. So an operator Resume during a limit hold unfreezes the sessions
-and re-enables `spawn()`, while `stopTheFleetIfALimitSaysSo` stays disarmed by its own first
-line until the deadline passes. Permissive-with-the-guard-down. This is the substance of the
-operator question I have drafted and not sent. Changing it requires inverting
-`tests/stop-at-the-limit.test.ts:122`, which asserts the current behaviour on purpose.
+**How wide the freeze actually is — measured**, by `tester-f04c8a2e` on the previous fleet,
+`performance.now()` either side of `await freezeEntireFleet`, one real Haiku session, stand
+adapted from `src/demo/guardian-drill.ts`:
+
+    mid-turn    13.5 ms   9.8 ms   9.7 ms      unreadByCliDropped=1
+    idle         1.3 ms  115.9 ms  1.1 ms      unreadByCliDropped=0
+
+Treat **10 ms as the resting width and the tail as unbounded** — the 115.9 ms outlier is an IPC
+round-trip to a process whose scheduling this machine's memory pressure owns, and nothing in
+silicyte bounds it. One session is a floor, not the answer: `interruptWhatWasClaimed` is
+`Promise.all` over every live session, so the real width is the slowest of N. Nobody has measured
+N > 1. Full method in `silicyte-dev-team`'s workspace repo,
+`journal/docs/back/how-wide-the-freeze-window-is.md` (pushed to `ye666w/silicyte-dev-team`; the
+checkout itself is gone).
+
+**The guard principle that came out of it, and it generalises past this file:** a guard that keys
+on the *byproduct* an operation fills in is open for exactly as long as the operation takes. That
+was `af2b817`. `halt()` is the pattern with no window — it sets `haltRequiringHuman` synchronously
+and every reader keys on that. When adding state a guard reads, ask whether it is set by the
+**decision** or by the **work the decision causes**. Only the first is safe to guard on.
+
+**Still open, and orders of magnitude worse than the one `af2b817` closed. Two ways in, one hole.**
+`spawn()` :209 keys on `frozenByTheLimit.size`, which `stopTheFleetIfALimitSaysSo` fills from what
+`claimEverythingForFreezing` actually claimed — `live().filter(status !== 'frozen')`. So:
+
+  **Nothing left to freeze.** If every live session is already `frozen` when the limit trips —
+  after an operator Stop, or during an incident freeze — the claim is empty, `frozenByTheLimit`
+  stays empty, and `spawn()` is open for the entire hold. Up to five hours, not ten milliseconds.
+  **Resume during a hold.** `resumeEverything()` :548 clears `frozenByTheLimit` and does **not**
+  clear `theLimitHoldsTheFleetUntil`, so `stopTheFleetIfALimitSaysSo` stays disarmed by its own
+  first line and never refills the set. Same open spawn, same rest of the hold.
+
+Both were found independently — the first by `back` while fixing `af2b817`, which left it out
+deliberately, the second here. Both are blocked on the same operator decision: **does an
+operator's Resume clear the limit deadline, or only unfreeze what the limit froze?** Answer that
+and both close together. Changing the second requires inverting
+`tests/stop-at-the-limit.test.ts:122`, which asserts the current behaviour on purpose — read the
+test before touching the code.
 
 ## The four tunables
 
@@ -303,6 +335,12 @@ Calling a tool directly, from `one-per-role.test.ts:68`:
     npm run demo:guardian        ONE real session + synthetic refusal. Spends.
     src/demo/panel-stand.ts      fake supervisor, NO model. Free.
     src/demo/trouble-stand.ts    every failure state on one page. Free.
+
+**Two refusals in one function test an ordering without paying for the happy path.** `spawn()`
+checks the limit *before* it looks the role up, so `spawn({role: 'not-declared'})` answers "close
+to its limit" while the guard is shut and "is not declared in the config" once it opens — a
+red/green signal with no process ever started. Read a function for a cheap existing refusal before
+building a fixture to drive the expensive one.
 
 **A session with no prompt costs nothing and still answers control requests.** That is the
 instrument for any "does the SDK actually do X" question — see the researcher role's
@@ -387,6 +425,14 @@ Ranked by how much they would explain if true.
 - A stale registry row restored from disk has caused three separate failures to start. When the
   fleet comes up wrong, `registry.json` is the first file to read.
 - `/compact` typed with a Cyrillic `с` does not fire and gives no error.
+- **There is no local `main` to fast-forward from a worktree.** `git branch -f main <sha>` dies
+  with "cannot force update the branch 'main' used by worktree at …/silicyte" — the orchestrator's
+  own checkout has it checked out. Landing is `git push origin HEAD:main`, full stop. Do not
+  `git -C` into the orchestrator checkout to work around it: that checkout backs a running fleet.
+  This wording was wrong in three skills of the previous fleet and cost a turn every time.
+- **A `git push` to this remote can run past two minutes and still exit 0.** Not a hang — both
+  refs moved. Give it a long timeout or background it deliberately, rather than reading the wait
+  as a stuck prompt and killing it.
 
 ## Keeping this file honest
 
