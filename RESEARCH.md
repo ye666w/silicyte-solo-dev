@@ -5,7 +5,7 @@ it deliberately carries no line numbers. This file is the opposite trade: it is 
 mine, and it carries anchors, measurements and suspicions — the things that go stale but pay
 for themselves while they are fresh.
 
-**Pinned to:** product `c35ef55`, this fork `af2b817`, 20.09.2026.
+**Pinned to:** product and this fork both at `af2b817`, 20.09.2026.
 **Lives at** `workspace/RESEARCH.md` — inside the workspace repo, so it is versioned with the
 config and the skills and survives every restart and every clear.
 Every line number below is followed by a grep anchor in `«»`. If the number is wrong, the
@@ -83,11 +83,11 @@ All in `src/supervisor.ts` unless noted. 1773 lines; this is the whole product's
       the ONLY place SDK messages enter. finally: advances the spend baseline.
       README calls this ordering load-bearing and untested — see Soft spots.
 
-    react(e)                   :1235  «private react(e: FleetEvent)»
+    react(e)                   :1242  «private react(e: FleetEvent)»
       the single switch every event passes through. Read this before theorising
       about what happens after anything.
 
-    routeReportToItsReader()   :1331  «private routeReportToItsReader»
+    routeReportToItsReader()   :1338  «private routeReportToItsReader»
       fires on EVERY result, unconditionally. An agent cannot choose not to report.
       Any skill rule saying "do not send interim reports" is unenforceable.
 
@@ -100,7 +100,11 @@ All in `src/supervisor.ts` unless noted. 1773 lines; this is the whole product's
     kill / closeOne            :499 / :506   «private async closeOne»
 
 Death paths that are not `kill`: `recoverFromFailedTurn` :831, `reportUnexpectedDeath` :405,
-`recoverManager` :428, `halt` :1212, `freezeEntireFleet` :1144, `quarantineForIncident` :1161.
+`recoverManager` :428, `halt` :1219, `freezeEntireFleet` :1144, `quarantineForIncident` :1168.
+`freezeEntireFleet` splits into `claimEverythingForFreezing` (synchronous, sets the statuses) and
+`interruptWhatWasClaimed` (awaits the IPC interrupts) — `af2b817` split them because `spawn()`
+gates on a set that was only filled after the await, leaving a window where a session could still
+be started into a freeze it would never be released from.
 
 ## Where state lives on disk
 
@@ -154,7 +158,7 @@ Produced in exactly one place: `bus.ts:66` `«ingest(sid: string, msg: SDKMessag
 function is the entire translation surface between the SDK and this product — **every question
 of the form "does the fleet notice X?" is answered there in about forty lines.** If a field
 is not read in `ingest`, nothing downstream can know it. That was the whole of card #54
-(`msg.tools` was discarded; now `toolsOfferedByCli: msg.tools ?? []` at `bus.ts:123`).
+(`msg.tools` was discarded; now `toolsOfferedByCli: msg.tools ?? []` at `bus.ts:125`).
 
 SDK message types handled: `assistant`, `result`, `rate_limit_event`, and `system` with
 subtypes `init`, `status`, `background_tasks_changed`, `compact_boundary`,
@@ -218,7 +222,7 @@ README's "Honest limitations" states this as intentional and points at the OS-le
 **Do not poke at this one blindly — it is the best-tested thing in the repo.**
 `tests/write-guard.test.ts` is 1026 lines, the largest test file by a factor of two, and it
 covers the cases that look like holes. The single-argument forms, for instance: `uniq FILE`
-reads and prints, and `whatOnePieceWritesInto` :101 guards the last-path rule with
+reads and prints, and `whatOnePieceWritesInto` (`:92`, the rule itself at `:101`) guards the last-path rule with
 `args.length > 1` precisely so that `uniq ${RAILS_FILE}` is allowed and
 `uniq /tmp/x ${RAILS_FILE}` is denied — both asserted, at test lines 802 and 829. Alias and
 shell-function redefinition, `awk` redirects inside a program string, `sed --in-place`,
@@ -254,10 +258,10 @@ Two accounting surfaces that do not sum, and confusing them has cost an hour:
     stopFleetAtFiveHourPercent: 85
     stopFleetAtWeeklyPercent:   90
 
-    stopTheFleetIfALimitSaysSo()  :1375  «if (this.theLimitHoldsTheFleetUntil > Date.now()) return»
-    letTheFleetBackWhenTheLimitResets()  :1402
-    releaseOnlyWhatTheLimitFroze()       :1409
-    holdOffUntilTheLimitLifts()          :1418
+    stopTheFleetIfALimitSaysSo()  :1382  «if (this.theLimitHoldsTheFleetUntil > Date.now()) return»
+    letTheFleetBackWhenTheLimitResets()  :1410
+    releaseOnlyWhatTheLimitFroze()       :1417
+    holdOffUntilTheLimitLifts()          :1426
 
 Two readings are merged field by field in `rate-limits.ts:85` `«everythingEitherReadingKnows»`.
 Card #52 was exactly this: a percentage measured in one window was carried onto the next. Fixed
@@ -323,8 +327,8 @@ Ranked by how much they would explain if true.
 1. **Compaction is a message nobody confirms.** `queueCompaction()` :1015 is literally
    `this.send(sid, '/compact …')`. `self_compact` replies "Compaction queued" — a promise
    nobody keeps or checks. No `compacted` event appeared in `fleet.log` for an entire run.
-   Worse: `compactionRequested` is added at :1517 and deleted **only** on `case 'compacted'`
-   :1292. A cancelled automatic compaction leaves the sid stuck in that set forever, silently
+   Worse: `compactionRequested` is added at :1525 and deleted **only** on `case 'compacted'`
+   :1299. A cancelled automatic compaction leaves the sid stuck in that set forever, silently
    and permanently disabling threshold compaction for that session. Candidate explanation for
    37M tokens / $133 on one session at `compactAtPercent: 40`. **Card #55. Verified still
    present at pin.** The two causes share one symptom — an empty 0-char report — and are
@@ -340,8 +344,8 @@ Ranked by how much they would explain if true.
 
 3. **20 `void this.…` fire-and-forget calls in `supervisor.ts`.** `no-floating-promises` is on,
    so each one was a deliberate `void`. Several sit on failure paths —
-   `void this.recoverFromFailedTurn` :1285, `void this.halt` :1307,
-   `void this.handleDowngrade` :1311. Nothing in `src/` registers `unhandledRejection` (only
+   `void this.recoverFromFailedTurn` :1292, `void this.halt` :1314,
+   `void this.handleDowngrade` :1318. Nothing in `src/` registers `unhandledRejection` (only
    SIGINT/SIGTERM, `start.ts:134`), so on Node's default that is **not a swallowed error — it
    takes the supervisor process down**, and `supervised.ts` brings it back up as if it had
    crashed. A failure inside failure recovery therefore looks like an unexplained restart.
