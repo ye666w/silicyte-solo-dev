@@ -428,7 +428,7 @@ Ranked by how much they would explain if true.
    `compact` line in `.silicyte/activity.log` — exact, free, and the thing to grep. Never infer
    a compaction from report size.
 
-2. **43 swallowed `catch {}` blocks** across `src/`. No `as any`, no `@ts-ignore`, no
+2. **Swallowed catches — MEASURED AND LARGELY WRONG AS WRITTEN, corrected at `157de77`.** There are 71 `catch` blocks in `src/`, 15 speak, 56 are quiet, and **not one is empty** — every quiet catch returns a fallback, and many are right to. The useful cut is not how many there are but which sit around a **write**: 12 try blocks write state, and 8 of them used to return in silence. Those are fixed. The count below is kept only to show what the claim was. No `as any`, no `@ts-ignore`, no
    `eslint-disable` anywhere — the codebase is otherwise strict. So the catches are the
    accepted escape hatch, and they are concentrated exactly where persistence and probing
    happen: `workspace.ts` 6, `supervisor.ts` 6, `connectors.ts` 4, `self-restart.ts` 3,
