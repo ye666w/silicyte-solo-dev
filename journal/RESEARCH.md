@@ -411,9 +411,16 @@ survive checking, and two were wrong in the direction that would have caused a w
   and a `continues` naming someone else's thread opens a task of its own. It was unreachable in a
   fleet where one session may reach the operator, which is why it survived; a second role with
   `mayAskTheOperator` is a config line, not a code change.
-- `incident.ts:104,111` — if `halt()` or `applyVerdict()` throws, `closeIncident()` never runs and
-  `handling` stays non-null, so every later `open()` returns immediately. A freeze nothing can
-  lift. Wants a `finally`. Unverified.
+- ~~`incident.ts:104,111` — the incident latch is never released when the investigation ends in a
+  halt~~ — real, FIXED in `ba15b28`, **and the reported fix was the wrong one.** Keeping the latch
+  through a halt is deliberate and already covered: a second classifier refusal must not start a
+  second guardian on top of a halted fleet, and `tests/guardian-reserve.test.ts` says so. I wrote
+  the suggested `finally` and that test caught me. The actual gap is that `closeIncident` had no
+  caller anywhere outside the handler's own happy path, and `resumeEverything` — which clears the
+  halt, the limit freeze and the root's trouble history — left this one latched. So the operator
+  resumes, everything looks recovered, and the classifier-refusal path is dead until the process
+  restarts, with no symptom but silence. Resuming now closes it. **A latch that is right to hold
+  still needs somebody whose job is to let go.**
 - `worktree.ts:82` — recreating a session whose branch survived a crash runs
   `git worktree add -b` against an existing branch and fails. Unverified.
 - `worktree.ts:95` — `git worktree remove --force` discards uncommitted work. Whether that is
