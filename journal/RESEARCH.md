@@ -771,25 +771,36 @@ Ranked by how much they would explain if true.
    impossible, and 13 of 17 fields went through it. The audit's yield was already collected by
    the design — which is the outcome you want and the one nobody writes down.
 
-6. **`app.html` has no module boundary, so none of its logic can be tested.** Audited
-   2026-09-21 and **the escaping half of this entry was overstated — there is no hole today.**
-   Twelve raw-HTML sinks (`grep -n "innerHTML\|insertAdjacentHTML\|outerHTML"`), every one of
-   them escaped. `renderMarkdown` escapes **first** and its three rules emit only `<pre>`,
-   `<code>` and `<strong>` — tags that carry no attribute — so neither an attribute break-out
-   nor a `javascript:` URL has anywhere to land. The alert sinks interpolate through `t()` and
-   escape the whole result afterwards, so a halt reason cannot carry markup either.
+6. **`app.html` — DONE, waves 1-6 on 2026-09-22 (`38d1bf9`..`de2e538`). Read this entry before
+   proposing to split that file: the reason to split it was solved more cheaply.**
 
-   What stands is the structural half: escaping is a convention each site keeps, not something
-   the code makes true, and **nothing about the panel is reachable from a test.** The suite
-   opens this file four times and reads it as text every time. The one measurement that makes
-   the second part tractable: of 2042 script lines the only top-level execution is `void boot()`
-   on the last line — everything else is a declaration. A harness that stubs `document` and
-   `fetch`, appends assertions and runs the extracted script in a subprocess (the trick
-   `tests/panel-script.test.ts` already uses for `node --check`) would reach every pure function
-   in the file without moving a line of it. Not built; sized only.
-   Its one `<script>` is parsed by `tests/panel-script.test.ts` since `5cec1f8`, which closes a
-   different hole in the same file: a syntax error there is a blank dashboard, and the three
-   tests that opened the page all read it as text. That check says nothing about escaping.
+   What was true: 2073 lines of script, 128 functions, nothing in it reachable from a test, 11
+   raw `innerHTML` sinks and 19 `escapeHtml` calls that each render path had to remember.
+
+   What is true now: **1 sink, 3 `escapeHtml` calls, 19 globals, and every function callable from
+   a test.** `tests/panel-harness.ts` lifts the script out, drops the single `void boot();` at its
+   end and runs the rest in a subprocess with a forty-line page stub and an `EventSource` stub.
+   No restructuring was needed, because nothing but that one call runs at load. Escaping is a
+   tagged template — interpolations escape, markup carries a symbol saying it is already markup —
+   and `tests/panel-script.test.ts` asserts that exactly one line writes `innerHTML` and that it
+   is the escaping one. The panel keeps **one** record of the open session and every channel
+   updates only the fields it carries; there were four update paths and no rule about which of
+   ten renders belonged to each.
+
+   **The file was not split, on purpose.** Modules buy isolation for testing, and the harness
+   already bought it for the price of one file. Splitting also touches delivery — the server
+   serves one file, `write-guard.ts` names it, four tests read it by path. Size alone is not a
+   defect.
+
+   **What it caught, in code that had been read carefully:** `findInTree` recursing into
+   `node.reports` unguarded (one node without the field throws out of a function every render path
+   calls); `formatTokens(999999)` reading `1000k`; a rate-limit refusal with no percentage drawn
+   grey and labelled "no data"; a session freezing while open showing the new status word and no
+   reason until reopened. Four, in the first two hours of the harness existing.
+
+   Still open and carded: **#60**, the context bar is not live. The reading itself has to reach
+   the fleet snapshot, which is server-side. Wave 4 made that a one-field change rather than a
+   second render path.
 
 7. **Test residue pollutes the product repo.** Quarantine tests have left 32 `silicyte/worker-*`
    branches and 8 worktrees under `/tmp` and `/var/folders`. Verified none held unique commits;
