@@ -485,6 +485,15 @@ survive checking, and two were wrong in the direction that would have caused a w
     `strictAllowlist`, and nobody has established whether web tools and MCP connectors
     run through the same box. Measure before touching it.
 
+## Where the rails come from
+
+`fleet_restart` with `updateRails` pulls from `config.railsFrom?.remote ?? 'upstream'` and
+`?.branch ?? 'main'` (`supervisor.ts:728`). **The default is a remote nothing creates.** This
+installation works because `workspace/fleet.config.ts:23` sets
+`railsFrom: { remote: 'origin', branch: 'main' }` — the fork is the only copy here, so `origin` is
+the upstream. `npm run sync` is hardcoded to `upstream` and has no such override, so on this
+machine it fails. Documented in the readme as of `9a90c75`.
+
 ## Landing
 
     src/landing.ts          «export class LandsWorkOnTheMainBranch»
