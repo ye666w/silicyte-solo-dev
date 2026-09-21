@@ -108,6 +108,14 @@ way its largest file; `wc -l` it rather than trusting a number written here.
     routeReportToItsReader()     «private routeReportToItsReader»
       fires on EVERY result, unconditionally. An agent cannot choose not to report.
       Any skill rule saying "do not send interim reports" is unenforceable.
+      The header it writes is what the reader above reacts to, and until `f19a2f8`
+      it had two words for three things: a turn cut short arrived as `failure`,
+      because `ok` is false, and readers restarted work that had been stopped on
+      purpose. A turn now carries `cutShortOnPurpose: { by, because }` from the
+      point it is marked; `by` is `theOperator`, `aSessionAbove` or `theFleetItself`
+      and `howThatReads` switches over the three with no default. The operator and
+      a session are deliberately worded apart: a session that stopped one of its
+      own will say what happens next, a human may simply have wanted it stopped.
 
     park / unpark                 «private async park»
       idle → process stopped, memory freed, transcript kept. parkAfterIdleSeconds: 90.
