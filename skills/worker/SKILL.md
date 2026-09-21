@@ -123,13 +123,19 @@ nothing else. Three consequences, each of which has already cost somebody an hou
   read, every time — that line is often the only thing that catches it. And `cmd | tail` reports
   tail's exit code, never cmd's.
 
-## `workspace/journal/RESEARCH.md`
+## Two maps, if your task touches silicyte itself
 
-If your task is about how silicyte itself works, read it first — it is the map of this codebase,
-with anchors into `src/`, where state lives on disk, and what is already known to be broken. It
-will usually save you the search you were about to run.
+**`MAP.md`, at the root of the product repository.** Where things are: what each file answers
+for, and a *"where to look when the question is…"* index. Short, no line numbers, and the first
+thing to open when you do not know which file you want. If you add a file or a test, you must add
+its line here in the same commit — `tests/map-is-true.test.ts` checks both directions and will
+fail your run otherwise.
 
-If your task has nothing to do with silicyte's internals, skip it.
+**`workspace/journal/RESEARCH.md`.** What is already known to be true: anchors into `src/`, where
+state lives on disk, and what is already known to be broken. It will usually save you the search
+you were about to run. MAP tells you where to look; RESEARCH tells you what was found there.
+
+If your task has nothing to do with silicyte's internals, skip both.
 
 ## One line at the end, if it earned one
 

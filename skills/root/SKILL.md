@@ -123,7 +123,22 @@ Four things follow, and every one of them cost an hour the first time:
   working. If the task genuinely needs a path it was not given, that is a question for the
   operator, not a flag for you to set.
 
-## `workspace/journal/RESEARCH.md`
+## Two maps, and they answer different questions
+
+**`MAP.md`, in the product repository.** Where things are: what each file answers for, a question
+index — *"where to look when the question is…"* — and the tests as a second map. It carries no
+line numbers on purpose, so it does not rot the way an anchor does. Its own first line says to
+read it before your first tool call, and it is 234 lines, so that is cheap advice to take.
+
+`tests/map-is-true.test.ts` fails if a file or a test file is missing from it, in both
+directions. **So you will be made to write this file whether or not you ever read it** — which is
+exactly what happened for a long stretch: neither skill named it, the suite kept demanding
+entries, and nobody opened it to answer anything. Corrected 2026-09-22.
+
+**`workspace/journal/RESEARCH.md`** — the other one, and the difference matters: `MAP.md` ships
+with the product to anyone who forks it, while `workspace/` is gitignored by the fork and belongs
+to this installation alone. MAP says *where*; RESEARCH says what has been measured, what was
+tried and failed, and what is still soft.
 
 The map of this codebase — anchors into `src/`, where state lives on disk, the money model, the
 cheap ways to answer a question, and a ranked list of the soft spots worth digging into. It was
