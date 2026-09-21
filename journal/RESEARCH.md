@@ -495,6 +495,12 @@ because there is no readable key, not because ssh cannot cross.
 Corrected in `889a1f5` (README), and in both skills, which had said "there is no network" and told
 workers that `npm install` fails for that reason.
 
+**Asked and settled for this installation (`0de93a74`): the network stays open.** Egress is needed,
+and the cost of closing it is that no session could ever pull a dependency again — irreversible in
+a way the broken npm cache is not. So `theSandboxASessionRunsIn` leaving `network` unset is the
+state somebody chose, not one nobody looked at. **Do not "harden" it.** The README states the
+choice because it belongs to whoever deploys this; this line states which way it went here.
+
 ## The sandbox, as of `59605a2`
 
     src/sandbox.ts          «export function theSandboxASessionRunsIn»
