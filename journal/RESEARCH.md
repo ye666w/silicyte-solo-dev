@@ -460,6 +460,41 @@ survive checking, and two were wrong in the direction that would have caused a w
 - `fleet_reload_skills` has no verb check where its neighbours do (`fleet-mcp.ts:246`). It *does*
   check the subtree. Verified as a consistency point with no consequence.
 
+## The network, measured 2026-09-21 — the sandbox does not close it
+
+**`theSandboxASessionRunsIn` sets no network settings at all.** It builds `filesystem.allowWrite`
+and `filesystem.denyRead` and stops. The single role with a network setting anywhere in `src/` is
+Guardian: `guardian.ts:9` `NO_NETWORK_AT_ALL = { strictAllowlist: true, allowedDomains: [] }`.
+Every other role inherits the harness default. What that default actually permits, tried from
+inside a sandboxed session rather than reasoned about:
+
+    curl https://example.com               200
+    curl https://api.github.com            200
+    curl https://registry.npmjs.org/...    200
+    git ls-remote https://github.com/...   returns a real sha
+    python socket.gethostbyname('pypi.org')  gaierror — no DNS from a raw socket
+    git ls-remote git@github.com:...       reaches the proxy, refused: "this proxy requires
+                                           authentication, and this client did not offer an
+                                           authentication method"
+
+So: **HTTP and HTTPS go out; nothing that is not HTTP does.** Egress is a proxy on `localhost`
+(`HTTP_PROXY`, `ALL_PROXY`, `GRPC_PROXY`, `FTP_PROXY` as socks5h, and `GIT_SSH_COMMAND` with an
+`nc -X 5` ProxyCommand). A bare `ssh` on the command line does **not** use `GIT_SSH_COMMAND` —
+only git does, so testing ssh with `ssh -T` measures nothing. That mistake was made here first.
+
+**`npm` still fails, and not for a network reason.** The registry answers, but the npm cache
+(`~/.npm/_cacache`) is outside `allowWrite`, and npm reports the denial as *"your cache folder
+contains root-owned files… run `sudo chown`"*. That is a false trail; nothing is wrong with the
+cache. Only `~/.npm/_logs` is writable.
+
+**The security shape, stated plainly.** A session that can reach HTTPS can send to anywhere it can
+reach. What keeps a credential in is `denyRead` on the file it lives in — `~/.ssh` and
+`.silicyte/integrations.json` — not the absence of a way out. `fleet_land` is still necessary, but
+because there is no readable key, not because ssh cannot cross.
+
+Corrected in `889a1f5` (README), and in both skills, which had said "there is no network" and told
+workers that `npm install` fails for that reason.
+
 ## The sandbox, as of `59605a2`
 
     src/sandbox.ts          «export function theSandboxASessionRunsIn»

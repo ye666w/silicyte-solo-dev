@@ -108,9 +108,14 @@ of the same object the write guard uses, so the two cannot drift apart.
 Four things follow, and every one of them cost an hour the first time:
 
   **`/tmp` is not writable — use `$TMPDIR`.** Every scratch file, every redirect, every fixture.
-  **Nothing reaches the network, and `dangerouslyDisableSandbox` is inert.** Setting it does not
-  take a command outside; the session's own sandbox description says so. Landing goes through
-  `fleet_land` and needs nothing from you but a commit.
+  **HTTP and HTTPS do reach out, and `dangerouslyDisableSandbox` is inert.** Setting it does not
+  take a command outside; the session's own sandbox description says so. But the sandbox this code
+  builds is a *filesystem* boundary — it sets no network settings for any role but Guardian.
+  Measured 2026-09-21: arbitrary HTTPS hosts answer, the npm registry answers, a fetch from an
+  `https://` remote works; raw sockets get no DNS, and ssh reaches the proxy and is refused there.
+  `npm` still fails, on a cache outside your write list, and blames "root-owned files" — a false
+  trail. Landing goes through `fleet_land` and needs nothing from you but a commit: `~/.ssh` is
+  denied, so there is no key to push with anyway.
   **The write guard reads your command text, not your intent.** It refuses a command that merely
   *mentions* a protected path — a grep whose pattern contains one is refused too. Rephrase; do not
   argue with it.
