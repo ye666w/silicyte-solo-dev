@@ -713,10 +713,22 @@ Ranked by how much they would explain if true.
    impossible, and 13 of 17 fields went through it. The audit's yield was already collected by
    the design — which is the outcome you want and the one nobody writes down.
 
-6. **`app.html` is 2683 lines with 120 functions and no module boundary.** Everything the
-   panel renders is agent-written and untrusted; `escapeHtml` at :893 is the only defence and
-   it is used by convention, not by structure. A new render path that forgets it is a defect of
-   the same size whether or not anything exploits it today.
+6. **`app.html` has no module boundary, so none of its logic can be tested.** Audited
+   2026-09-21 and **the escaping half of this entry was overstated — there is no hole today.**
+   Twelve raw-HTML sinks (`grep -n "innerHTML\|insertAdjacentHTML\|outerHTML"`), every one of
+   them escaped. `renderMarkdown` escapes **first** and its three rules emit only `<pre>`,
+   `<code>` and `<strong>` — tags that carry no attribute — so neither an attribute break-out
+   nor a `javascript:` URL has anywhere to land. The alert sinks interpolate through `t()` and
+   escape the whole result afterwards, so a halt reason cannot carry markup either.
+
+   What stands is the structural half: escaping is a convention each site keeps, not something
+   the code makes true, and **nothing about the panel is reachable from a test.** The suite
+   opens this file four times and reads it as text every time. The one measurement that makes
+   the second part tractable: of 2042 script lines the only top-level execution is `void boot()`
+   on the last line — everything else is a declaration. A harness that stubs `document` and
+   `fetch`, appends assertions and runs the extracted script in a subprocess (the trick
+   `tests/panel-script.test.ts` already uses for `node --check`) would reach every pure function
+   in the file without moving a line of it. Not built; sized only.
    Its one `<script>` is parsed by `tests/panel-script.test.ts` since `5cec1f8`, which closes a
    different hole in the same file: a syntax error there is a blank dashboard, and the three
    tests that opened the page all read it as text. That check says nothing about escaping.
