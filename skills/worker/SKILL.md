@@ -107,6 +107,14 @@ Every command runs confined. You may write your own worktree, the journal and `$
 nothing else. Three consequences, each of which has already cost somebody an hour:
 
   **`/tmp` is not writable — use `$TMPDIR`** for every scratch file and every redirect.
+  **Your worktree is the code as it was when you were made, not as it is now.** The branch was
+  cut from `origin/main` at that moment and does not follow it; a session started an hour ago can
+  be many commits behind. You cannot `git fetch` — ssh is refused at the proxy — and you do not
+  need to: your worktree shares its refs with the checkout it came from, and the supervisor
+  fetches whenever anything lands. **If your task is to read or analyse, read `origin/main`:**
+  `git show origin/main:<path>` for one file, `git archive origin/main | tar -x -C <dir>` for a
+  tree. Say in your report which revision you read. Line numbers from the wrong one waste
+  everybody's turn.
   **HTTP and HTTPS do reach out. What stops you is the filesystem, not the network.** Measured
   2026-09-21: the npm registry answers and a fetch from an `https://` remote works. And yet
   `npm install`, `npm view` and `npx` all fail anyway, because npm's cache lives outside everything

@@ -726,14 +726,35 @@ Ranked by how much they would explain if true.
    one of these.** `operator-questions.ts` and `spending.ts` at least carry an
    `alreadySaidItCannotBeWritten` flag; most do not.
 
-3. **20 `void this.…` fire-and-forget calls in `supervisor.ts`.** `no-floating-promises` is on,
-   so each one was a deliberate `void`. Several sit on failure paths —
-   `void this.recoverFromFailedTurn` :1292, `void this.halt` :1314,
-   `void this.handleDowngrade` :1318. Nothing in `src/` registers `unhandledRejection` (only
-   SIGINT/SIGTERM, `start.ts:134`), so on Node's default that is **not a swallowed error — it
-   takes the supervisor process down**, and `supervised.ts` brings it back up as if it had
-   crashed. A failure inside failure recovery therefore looks like an unexplained restart.
-   Worth staging deliberately: reject one of these and watch what the operator actually sees.
+3. **Not twenty shots in the air — two habits. AUDITED 2026-09-22, three fixed in `69b0580`.**
+
+   All 21 `void this.…` in `supervisor.ts` were walked, each by forcing the callee to reject.
+   **Thirteen cannot reject at all** and need nothing: `bus.emit` catches every subscriber
+   (`bus.ts:60`), `memory.sample()` has `catch { return … }` on both commands, **`notifyHuman`
+   never rejects** — `integrations.announce` swallows delivery failures and the webhook is wrapped
+   — and the rest already carry their own catch. `void` on those is honest.
+
+   What the audit actually found is two orderings, and the `void` only hides what they leave:
+
+   **The intent is marked spent before the thing is done.**
+   `if (this.reloadWhenQuiet.delete(e.sid)) void this.parkForReload(e.sid)` consumed the intent in
+   the condition, while the work behind it stands behind two ordinary early returns — any session
+   frozen anywhere, or one unread message. **No rejection needed.** The session kept its old
+   process and old system prompt for good, after the operator had been told it would restart.
+   Same shape: `refusalsBySid.delete` before `incidents.open`, which erased the three refusals that
+   had earned the escalation and made the threshold unreachable.
+
+   **The latch goes up before the work.** `halt()` set `haltRequiringHuman` and then froze. A
+   freeze that fails leaves a fleet that believes it halted and stopped nothing, with no `halted`
+   event, and the same latch is the guard at the top — so a retry does nothing for the rest of the
+   process, while silencing every nudge and every park.
+
+   Still unfixed and recorded rather than pretended away: `handleDowngrade` writes the session's
+   new model and marks the turn refused **before** opening the incident, so an open that fails
+   leaves a quietly downgraded model, no incident, and `recoverFromFailedTurn` suppressed by the
+   mark. Four more `void` sites (`reportUnexpectedDeath`, `recoverFromFailedTurn`, two in
+   `stopTheFleetIfALimitSaysSo`) lead into the same halt/incident machinery and were not driven to
+   a conclusion — the limit probe needed ceiling settings the prober's config lacked.
 
 4. **The spend baseline ordering — FIXED in `55ac66d`, and the reason it stayed open is worth
    more than the fix.** The baseline advances in `drainIntoBus`'s `finally`; moving it earlier
@@ -943,6 +964,19 @@ local when the drain starts.
 Same disease as `reportUnexpectedDeath` and the cut-short mark, all three found on 2026-09-22:
 **an obligation resting on a value read later than somebody else overwrote it.** When you find one
 of these, look for the others before you stop.
+
+## A worker reads the code its worktree was cut from, which is not the code that runs
+
+A worktree's branch is cut from `origin/main` **at the moment the session is created** and does
+not follow it afterwards. That is right for a session writing code and wrong for one reading it:
+a worker started in the morning analyses the morning's code and reports line numbers nobody can
+find. Measured 2026-09-22 — the shared checkout's local `main` sat at `de2e538` while
+`origin/main` had moved eight commits on.
+
+A session cannot `git fetch` (ssh is refused at the proxy), **but it does not need to**: worktrees
+share one object store and one set of refs with the checkout they were cut from, and the
+supervisor fetches on every land. So `git show origin/main:<path>` and `git archive origin/main`
+give the current code from inside any worktree. Say so in a reading task; do not assume.
 
 ## Traps that have already cost time
 
