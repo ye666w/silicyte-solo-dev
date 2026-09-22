@@ -1342,3 +1342,27 @@ which at least gets counted.
 The general shape, third time this week: **moving work later moves the failure later too, and the
 new failure is usually silence.** When deferring something, ask what reports it if the later
 moment never arrives.
+
+## `Worktrees.create` — the rollback list was written after the work — `06c47e3`
+
+`git worktree add -b` prints `Preparing worktree (new branch ...)` **and then** checks the
+destination, so an add that fails can already have made the branch. The push onto
+`cutByThisCall` sat after that call, so such a repository was never on the list and
+`leaveNoTraceOf` never reached it. `create` throws, no registry row is written, nothing comes
+back for it, and every retry leaves another `silicyte/<sid>`.
+
+Measured, not assumed: `existsSync` on a **dangling symlink returns false**, while git sees the
+path as present. That is the reachable route past the `if (!existsSync(dest))` guard, and it is
+the shape a previous half-failure leaves behind — so the failure feeds itself.
+
+This is soft spot 7 (stray `silicyte/worker-*` branches) in part: some of that residue is real
+tests, some was this.
+
+## The fifth worker task: mutation over the suite, not reading
+
+Six "decorations" in one day — guards written, nothing observing them, and **re-reading found none
+of them.** The counter-measure that works is mechanical: change one thing in `src/`, run the
+suite, put it back. Green means a hole.
+
+The full suite takes about five seconds, so the loop is cheap enough to do by the dozen. Worth
+repeating periodically rather than once.
