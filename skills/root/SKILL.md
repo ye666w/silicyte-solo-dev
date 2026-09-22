@@ -63,16 +63,28 @@ best" — which finding to act on first, which of two approaches to take — com
 directly instead of running each one past a threshold built for a different shape of question. A
 threshold answers yes/no; only an argmax answers which.
 
-`typesafe:typesafe-ai` is enabled for this account, and `$TYPESAFE_API_KEY` is already in your
-environment; the sandbox lets HTTPS out. It is built for wiring a Jev call into product code, but
-the threshold-shaped judgments above are exactly its shape too — a Noul question, one per item,
-answered over HTTP, costs neither your own context nor a worker slot. Next time a defect-or-difference
-call is precise enough to write as one paragraph and you are about to spend either on several of
-them, ask Jev instead of reasoning through the list yourself or spinning up a worker for it. Nobody
-has done this here yet, so treat the first one as a measurement, not a habit: before you lean on
-the answer, check it against what you would have said yourself, and say so in the same turn if it
-disagreed. The skill's own docs say to validate a threshold against real cases before trusting it —
-this is that validation, and until now it has not happened even once.
+`typesafe:typesafe-ai` is enabled for this account, `$TYPESAFE_API_KEY` is already in your
+environment, and the sandbox lets HTTPS out — nothing is left to set up between you and calling
+it. **Default to it, not to your own read, for anything that fits one of its three shapes and that
+you can state in one paragraph:**
+
+  **Noul** (a yes/no probability on one item) — defect-or-difference above; whether a given
+  `ask_operator` call is genuinely the operator's to make (below); whether a worker's briefing
+  actually satisfies each of the four required parts before you send it, checked one part at a
+  time rather than trusted on a re-read of your own writing.
+  **Score** (a graded position across comparable items) — when a worker's list needs a priority
+  order, score every item instead of eyeballing which one goes first.
+  **Choice** (one of a named set) — keep, clear or kill above, when more than the two obvious
+  cases are in play at once and it stops being a lookup.
+
+Nobody has ever called it from here. That is the argument for defaulting to it *going forward*,
+not for spending one trial on a case you handpicked as clean and calling the question settled —
+a single comparison on an easy item tells you nothing about the messy ones that actually matter.
+So every time the shape matches, run it alongside your own read and say in the same message
+whether the two agreed. Let a real pattern of agreement or disagreement, accumulated over many
+calls, be what eventually earns it more trust or less — not a single data point, and not your own
+sense that a particular case didn't seem worth the round trip. "I didn't think it was needed this
+time" is not a judgment call here; it is the one thing this paragraph exists to rule out.
 
 ## A worker starts blind
 
@@ -284,14 +296,14 @@ You are the session the human talks to. `ask_operator` is yours and it is the fr
 fire exit — a decision that is theirs, a cost only they can authorise, anything irreversible, any
 question where being wrong is expensive. An unnecessary question costs them ten seconds.
 
-This is the other threshold-shaped call worth naming next to defect-or-difference above: *does
-this need the operator, or can I decide it.* Right now it gets answered fresh, in prose, every
-time — the shape most prone to drift, because nothing catches you deciding a similar case
-differently two weeks apart. Stated once as a Noul question (given the cost and the reversibility
-described above, is this the operator's decision) it becomes auditable the way a paragraph of
-reasoning is not. Same status as the compaction case: unclaimed, untried. Next time an
-ask_operator call is genuinely borderline, run it past Jev before you decide, and see whether the
-probability agrees with what you were about to do.
+This is the other Noul named above, not a softer version of it: *does this need the operator, or
+can I decide it.* Right now it gets answered fresh, in prose, every time — the shape most prone to
+drift, because nothing catches you deciding a similar case differently two weeks apart. Every
+`ask_operator` call, by default, gets checked against Jev first (given the cost and the
+reversibility described above, is this the operator's decision), and you say in the same message
+whether it agreed with what you were about to do. "This one felt obvious" is not an exemption —
+obvious cases are the cheapest to check and the easiest to stop checking, which is exactly how a
+drift runs for two years before anyone notices.
 
 `account_limits` is also yours. The fleet stops itself at the percentages set in
 `workspace/fleet.config.ts` — `stopFleetAtFiveHourPercent` and `stopFleetAtWeeklyPercent` — and it
