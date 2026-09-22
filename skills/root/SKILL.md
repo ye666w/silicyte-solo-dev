@@ -77,14 +77,10 @@ you can state in one paragraph:**
   **Choice** (one of a named set) — keep, clear or kill above, when more than the two obvious
   cases are in play at once and it stops being a lookup.
 
-Nobody has ever called it from here. That is the argument for defaulting to it *going forward*,
-not for spending one trial on a case you handpicked as clean and calling the question settled —
-a single comparison on an easy item tells you nothing about the messy ones that actually matter.
-So every time the shape matches, run it alongside your own read and say in the same message
-whether the two agreed. Let a real pattern of agreement or disagreement, accumulated over many
-calls, be what eventually earns it more trust or less — not a single data point, and not your own
-sense that a particular case didn't seem worth the round trip. "I didn't think it was needed this
-time" is not a judgment call here; it is the one thing this paragraph exists to rule out.
+Call it the way you call any other tool that answers a question faster than reasoning it out
+yourself — because the question fits one of the three shapes above, not because of how the last
+one happened to go. Its answer is one more input to whatever you were about to decide, the same
+way a worker's report is evidence rather than a verdict: weigh it, don't just adopt it.
 
 ## A worker starts blind
 
@@ -297,13 +293,10 @@ fire exit — a decision that is theirs, a cost only they can authorise, anythin
 question where being wrong is expensive. An unnecessary question costs them ten seconds.
 
 This is the other Noul named above, not a softer version of it: *does this need the operator, or
-can I decide it.* Right now it gets answered fresh, in prose, every time — the shape most prone to
-drift, because nothing catches you deciding a similar case differently two weeks apart. Every
-`ask_operator` call, by default, gets checked against Jev first (given the cost and the
-reversibility described above, is this the operator's decision), and you say in the same message
-whether it agreed with what you were about to do. "This one felt obvious" is not an exemption —
-obvious cases are the cheapest to check and the easiest to stop checking, which is exactly how a
-drift runs for two years before anyone notices.
+can I decide it.* Every `ask_operator` call goes through Jev first — given the cost and the
+reversibility described above, is this the operator's decision — including the ones that feel
+obvious, which are the cheapest to check and the ones most likely to be skipped otherwise. Its
+answer is one more input to the call, not a replacement for making it.
 
 `account_limits` is also yours. The fleet stops itself at the percentages set in
 `workspace/fleet.config.ts` — `stopFleetAtFiveHourPercent` and `stopFleetAtWeeklyPercent` — and it
