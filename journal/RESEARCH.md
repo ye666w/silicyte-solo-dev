@@ -1298,3 +1298,23 @@ most serious first, each with the two lines, one sentence of consequence, and a 
 `npm run typecheck 2>&1 | tail -4 && npm test` runs the tests even when the typecheck failed,
 because `&&` reads **tail's** status. Already known for `npm test`; it is true of every gate.
 Give each one its own line and its own `echo "…=$?"`.
+
+## Compaction: the CLI never reports a cancellation — measured 2026-09-22
+
+In a full day of a real fleet, `.silicyte/activity.log` holds **185 lines mentioning compaction and
+zero `compact refused`**. The bus only emits `compactionRefused` from `msg.compact_result ===
+'failed'` (`bus.ts`), and that message does not arrive. A cancelled compaction is therefore
+**invisible to the supervisor**, which is why it retried every two minutes forever.
+
+Do not assume `compacted` (from `compact_boundary`) is the only signal either — it does arrive, so
+a successful compaction *is* observable. It is only the failure that is silent.
+
+Consequences now handled (`b3661a4`):
+- asks are counted; three that change nothing stop the asking and file an operator task;
+- the ask waits for the turn to end and for nothing to be unread, instead of being posted into the
+  middle of a turn where the next arriving message cancels it;
+- the ask is stamped with the clock of the event that sent it.
+
+**Still unknown and worth asking the operator, not guessing:** *why* the CLI cancels. The leading
+hypothesis is input arriving during the compaction. Task `e9fe25fb` asks for the transcript around
+one.
