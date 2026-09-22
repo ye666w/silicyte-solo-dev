@@ -1399,3 +1399,47 @@ truthy, so that mutation changes nothing.
 
 Worth repeating periodically. Six "decorations" of my own were found the same day by the same
 method, and re-reading had found none of them.
+
+## The panel's HTTP surface had never been asked anything — `a1afc8d`
+
+39 mutations in `web/server.ts`, 3 caught. **No test calls `route()` and none calls `start()`.**
+`tests/panel-routes.test.ts` stubs `IncomingMessage`/`ServerResponse` and calls `route` directly —
+a real listen on port 0 is not needed and the class exposes no port or `stop()`. Table of
+path × method × body → status; 15 mutations, 15 caught.
+
+Two of those 15 only became catchable after the test was made honest:
+- a traversal that leads **nowhere** is refused by the file not existing, and proves nothing about
+  the guard. Put a real JSON file one directory up and ask for it.
+- a route that returns 404 for a missing *session* must also be asked with a real session and a
+  missing *task*, or the inner branch is never reached.
+
+## A fixture that starts past the threshold tests none of the thresholds — `2eba92b`
+
+The nudge had one fixture (`quietFleet`) that set `lastActivityAt` 10 minutes back and every
+session idle, so every "when" condition was already true before the call. Removing any of them
+changed nothing. `parkWhoeverIsIdle` was called by **no test at all**.
+
+`tests/when-the-fleet-is-quiet.test.ts` is a table of the states that mean *not yet*, each
+starting before its own condition is met, plus positive rows so refusing everything does not pass.
+
+**It found a guard that could never fire.** `workingInBackground` required
+`registry.get(sid)?.status === 'busy'`, and the line above already returns for any busy live
+session — and `live()` is everything not stopped, so a busy session is always live. Meanwhile a
+background task is exactly what outlives its turn: the session goes idle and the task runs on.
+Fixed to ask whether a live session has a non-ambient task.
+
+**Watch for tests that pass for the wrong reason.** The Guardian-is-never-parked test passed
+because `__guardian__` starts with `WRAPPER_OWNED_ROLE_PREFIX` and so already had the 15-minute
+patience; the fixture's 10 minutes never reached the Guardian branch. Both a mutation and a
+reading were needed to see it.
+
+## The three shapes of an untested boundary, in the order they were found
+
+1. **The check is covered, the callers are not** — `fleet-mcp.ts`, fixed by a table of
+   tool × authority (`9218900`).
+2. **The caller is covered, but nothing ever calls it for real** — `web/server.ts`, fixed by
+   asking the router (`a1afc8d`).
+3. **The call is covered, but the fixture starts past every condition** — the two timers, fixed by
+   a table of *not yet* states (`2eba92b`).
+
+Look for all three when a file reads as well-tested and mutates green.
