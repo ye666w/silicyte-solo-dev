@@ -836,6 +836,57 @@ Ranked by how much they would explain if true.
    the identifier (`refuseAWriteGrantNoRoleWillBeGiven`, `theWindowItMeasuredHasSinceRolledOver`)
    and so should you.
 
+## Checked in the fourth pass and found FALSE — do not re-derive these
+
+Research round 2026-09-22, four workers on `claude-haiku-4-5-20251001` plus root. ~25 claims
+returned. **Every one verified was false except one.** Kept here so nobody spends the hour again.
+
+- **"The write guard misses `2>/path` without a space."** False. `REDIRECTED_INTO` uses `\s*`,
+  not `\s+`. Asked the guard itself with all four spacings against a protected path — all four
+  refused. The way to check this is `buildWriteGuard(...)` and call the hook, never by running
+  the command.
+- **"`integrations.json` is write-protected but readable, so a session can take the token."**
+  False. `supervisor.ts:403` always passes it in `secretsNoSessionNeeds`; the deny is a product
+  default, not this installation's config. Only `~/.ssh` and that file are denied by default
+  (`sandbox.ts:16`).
+- **"A session can curl the panel and retune the root."** False *as stated* — but read the true
+  version below, which is worse. The panel does listen on `127.0.0.1:4173`; a session's
+  connection to it is refused.
+- **"The panel's API has no subtree checks, so a session can interrupt any other."** The premise
+  is true and the conclusion does not follow: the panel is the operator's surface and the
+  operator may touch any session.
+- **"`recordTotalFor` after `retire` double-counts in `fleetTotal`."** False.
+  `noteWhatItSpent` returns early on `status === 'stopped'`, and `closeOne` retires and sets that
+  status in one synchronous block — there is no awaitable gap between them.
+- **"`isFrozen` / `applyVerdict` / `releaseOnlyWhatTheLimitFroze` leave state inconsistent if a
+  call in the middle throws."** Reported three times in different words. Structurally true of
+  almost any multi-step mutation and undemonstrated in every case: no throw was shown. Do not
+  file this shape again without an input that actually throws.
+
+**True and minor, from the same round:** a window that leaves `polled` lives on in `pushed`,
+because `snapshots()` unions both key sets and `poll()` replaces `polled` wholesale
+(`rate-limits.ts:177`). Consequence is a stale row in the full summary with an honest
+`observedAt`; it cannot affect `theWindowThatBinds`, which only considers windows that do not
+vanish. Not filed.
+
+**True and material, from the same round:** see the panel entry below.
+
+## The panel's API has no authority checks at all, and nothing in the product supplies them
+
+`src/web/server.ts` performs no authentication and no subtree check on anything. `/api/auth`
+reports whether `claude auth login` has happened; it guards nothing. Every state-changing
+endpoint — retune, interrupt, stop a background task, answer an operator question, stop and
+resume the fleet — is available to whatever can open TCP to `127.0.0.1:4173`.
+
+Sessions cannot reach it **today**, and that is the harness sandbox refusing localhost, not the
+product. `mayRunOutsideTheSandbox: true` is a documented per-role option the README calls the
+operator's decision; a role given it also receives the whole fleet-control API, bypassing the
+subtree authority that `fleet-mcp.ts` enforces on every equivalent operation. The two surfaces
+disagree about who may do what, and only one of them knows it.
+
+Measured 2026-09-22: panel listening on 4173 confirmed, connection from a sandboxed session
+refused. Not filed as a card yet.
+
 ## Traps that have already cost time
 
 - `npm test | tail` reports **tail's** exit code. Write to a file and check `$?`.
