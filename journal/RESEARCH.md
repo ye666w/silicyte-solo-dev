@@ -509,8 +509,12 @@ choice because it belongs to whoever deploys this; this line states which way it
       allowUnsandboxedCommands: FALSE since `365a312`. A session cannot mark a command
                                 as stepping outside; the parameter is inert, and the
                                 session's own sandbox description says so.
-      filesystem.allowWrite   built from the SAME WhereASessionWorks the write guard is
-                              given, so the two cannot drift apart
+      filesystem.allowWrite   built from the same WhereASessionWorks the write guard is
+                              given, and NOT the same list — this was stated backwards here,
+                              in MAP.md and in the root skill until 2026-09-22. It adds each
+                              shared checkout's `.git`, the workspace's `.git` and `tmpdir()`.
+                              `write-guard.ts` does not import `sandbox.ts` at all. Three of
+                              the gaps found that day live in exactly that difference
       network                 undefined. A session is handed nothing of its own. What
                               is left is whatever the CLI itself needs.
 

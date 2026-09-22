@@ -102,8 +102,10 @@ your own branch.
 
 Every Bash command runs inside an OS sandbox, applied per command rather than to the session.
 Reads are open; **writes are confined** to your worktree, the product's `.git`, the journal, the
-skills you may sculpt, `workspace/.git` and `$TMPDIR`. That list is built in `src/sandbox.ts` out
-of the same object the write guard uses, so the two cannot drift apart.
+skills you may sculpt, `workspace/.git` and `$TMPDIR`. The sandbox and the write guard both start
+from one `WhereASessionWorks` and do **not** arrive at the same list: the sandbox adds those `.git`
+directories and `$TMPDIR`, and `write-guard.ts` does not import `sandbox.ts` at all. **The OS
+permits things the guard refuses**, and a symlink out of your worktree reaches them.
 
 Four things follow, and every one of them cost an hour the first time:
 
