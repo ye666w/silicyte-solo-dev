@@ -27,7 +27,7 @@ const config: FleetConfig = {
   roles: {
     root: {
       name: 'root',
-      model: OPUS,
+      model: 'claude-opus-5-5',
       effort: 'high',
       permissionMode: 'bypassPermissions',
       repos: [{ repo: 'silicyte', mode: 'own' }],
@@ -42,7 +42,7 @@ const config: FleetConfig = {
 
     worker: {
       name: 'worker',
-      model: HAIKU,
+      model: 'claude-haiku-4-5-20251001',
       effort: 'high',
       permissionMode: 'bypassPermissions',
       repos: [{ repo: 'silicyte', mode: 'own' }],
