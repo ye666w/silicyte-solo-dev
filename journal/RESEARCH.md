@@ -1318,3 +1318,27 @@ Consequences now handled (`b3661a4`):
 **Still unknown and worth asking the operator, not guessing:** *why* the CLI cancels. The leading
 hypothesis is input arriving during the compaction. Task `e9fe25fb` asks for the transcript around
 one.
+
+## Why the CLI cancels a compaction — answered by the operator, task `e9fe25fb`
+
+**The session was busy.** A `/compact` posted into the middle of a turn is cancelled. That is the
+whole of it, and it makes `b3661a4` the right fix rather than a guess.
+
+Two things follow that were not obvious before:
+
+**The old "a 3.9 KB instruction was cancelled while 1.4 KB went through" mystery is probably not
+about size at all.** `self_compact` and `fleet_compact` still call `queueCompaction` directly, so
+they post into the middle of the asking session's own turn. Whether it survives then depends on
+what arrives next — a report from below, a nudge, the operator typing — not on how long the
+instruction is. Two runs with different sizes are two runs with different traffic. Worth
+re-testing before anyone bisects on length again.
+
+**Deferring the ask opened a hole of its own**, fixed the same day: an intent held for a quiet
+moment that never comes is an intent never spent, and nothing counts or reports it. A session
+written to on every turn has something unread at every turn's end. The wait is bounded by
+`LONG_ENOUGH_FOR_A_COMPACTION_TO_HAVE_LANDED_MS`, after which it asks anyway — the old behaviour,
+which at least gets counted.
+
+The general shape, third time this week: **moving work later moves the failure later too, and the
+new failure is usually silence.** When deferring something, ask what reports it if the later
+moment never arrives.
