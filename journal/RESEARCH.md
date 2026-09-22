@@ -1366,3 +1366,36 @@ suite, put it back. Green means a hole.
 
 The full suite takes about five seconds, so the loop is cheap enough to do by the dozen. Worth
 repeating periodically rather than once.
+
+## The authority layer was decoration until `9218900` — and how that was found
+
+A worker made sixty single mutations across `src/`, ran the suite after each and reported what
+stayed green. Ten findings; **nine were one hole**, and its shape is the reusable part:
+
+> the suite tested the **functions** that do the checking and never tested **which callers are
+> obliged to ask them**.
+
+`refusalIfOutsideOwnSubtree`, `hasVerb`, `isInside` were all covered — remove a line inside any of
+them and the suite goes red. Remove the *call* from a tool and nothing noticed. So every boundary
+in `fleet-mcp.ts` held only by habit: no authority meant full authority, four of six verbs gated
+nothing, three of five grants gated nothing, two tools reached outside the caller's subtree,
+`__setup__` could be started from inside the fleet, and both caps on `fleet_request` were an
+off-by-one loose.
+
+`tests/authority.test.ts` is one table — each tool against the verb, grant and subtree it needs —
+because it was one hole. Sixteen mutations, sixteen caught. **A table grows with the number of
+tools; separate tests do not.**
+
+Covered and confirmed dense by the same pass, so do not re-derive: `write-guard.ts` (13 of 14
+mutations caught), `sandbox.ts` (9 of 9), `landing.ts` (5 of 5), `limit-hold.ts` (4 of 4),
+`capacity.ts` (5 of 5), and most of `registry.ts`.
+
+**How to run this again.** `git archive origin/main | tar -x -C "$TMPDIR/…"`, symlink
+`node_modules` with `node -e 'fs.symlinkSync(…)'` (`ln -s` is refused by the guard), then one
+mutation → `npm test` → restore, in a loop. A full run is about five seconds. **The unpacked tree
+is not a git repository, so `setup is told that src/ is the code this fleet runs` fails always —
+the oracle is `fail > 1`, not `fail > 0`.** And beware `X ? [` → `[] ? [`: an empty array is
+truthy, so that mutation changes nothing.
+
+Worth repeating periodically. Six "decorations" of my own were found the same day by the same
+method, and re-reading had found none of them.
