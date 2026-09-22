@@ -1115,3 +1115,127 @@ Re-verify before trusting, in this order:
    is stale — fix it in place rather than working around it.
 3. When a soft spot is fixed, do not delete it. Move it to a closing line saying which commit
    fixed it. The list of things that were once wrong is the most reusable thing here.
+
+## `supervisor.ts` is large and not tangled — measured 2026-09-22, do not re-derive
+
+2028 lines, 47 fields, 124 methods, and the obvious move is to split it. **Do not.** Measured by
+grouping every `this.<field>` by the method that touches it:
+
+- `registry` — touched by **67** methods
+- `bus` — **32**
+- `roles` 14, `theLimit` 10, `frozenByTheLimit` 8 (now gone), `backgroundTasksBySid` 7,
+  `haltRequiringHuman` 7
+- **everything else — one or two methods each**
+
+There is no seam. Any class carved out still holds `registry` and `bus`, so a split adds
+indirection and removes no coupling; and the fields that look extractable are touched by a single
+method, so extracting them moves one method and achieves nothing. The file is a facade over
+concerns that are already separate at the field level.
+
+The script is twenty lines: regex the field declarations, walk each method body by brace depth,
+intersect `this.<name>` with the field set, invert. Redo it before anyone argues for the split
+again — it is cheaper than the argument.
+
+What the same measurement *did* find is below.
+
+## One reason a session is held — `1e224d3`
+
+Before: three parallel registers for one fact. `rec.quarantinedByIncident` (a boolean, persisted),
+`heldBackByAVerdict` (a Set, memory only), `frozenByTheLimit` (a Set, memory only). `isFrozen` was
+a subtraction over two of the three, so every new reason meant remembering to subtract it.
+
+**The hole that mattered:** only the boolean reached disk, and `applyVerdict` cleared exactly that
+boolean while moving the holding into the in-memory Set. So a session a verdict called
+contaminated came back from the next fleet restart **`parked`** — an ordinary session any message
+wakes. This fleet restarts several times a day.
+
+Now: `SessionRecord.heldBecause: WhyASessionIsHeld | undefined`, persisted, and one table in
+`types.ts`:
+
+| `heldBecause` | holdsTheWholeFleet | aPlainUnfreezeLiftsIt | whatSurvivesARestartSays |
+|---|---|---|---|
+| `undefined` | yes | yes | — |
+| `theAccountRanOut` | yes | yes | — |
+| `anIncidentHasNoVerdictYet` | no | **no** | a sentence |
+| `aVerdictCalledItContaminated` | no | yes | a sentence |
+
+`whatAHoldMeans(why)` is an exhaustive switch, so a fifth reason will not compile until all three
+columns are answered for it. Grep `heldBecause`.
+
+Semantics worth knowing before touching this, all three deliberate and tested: the operator
+resuming by hand **does** release a verdict hold and **does not** release a quarantine; a restart
+does the opposite of both.
+
+**A table is the cheapest thing in this codebase to mutation-check** — one cell at a time, one
+loop. Doing that found `theAccountRanOut → holdsTheWholeFleet` covered by nothing, whose
+consequence is the dashboard reading "working" while every session is frozen.
+
+## The one-shot mark, and the guard that now holds the shape
+
+`tests/marks-are-spent.test.ts`. A method that deletes what it just read answers once. Put behind
+`&&` or `||` it is asked only on some runs, and on the others the mark it was meant to spend stays
+for the life of the conversation and answers a question asked hours later about something else.
+
+That is how **root recovery switched itself off**: `thatTurnWasRefused` was the last term of
+`!e.ok && !cutShortOnPurpose && !thatTurnWasRefused(sid)`, and a refusal the fallback rides out is
+precisely the case where the turn goes on to *succeed* — so the mark was set, never read, and
+suppressed the next genuine crash. Fixed in `b9f6d36`; the guard is `c28b744`.
+
+The guard reads `supervisor.ts` as text, finds every non-void private method whose body deletes
+per-session state, and refuses call sites behind a short circuit. `if (f(x))` as the sole term
+stays allowed, and is correct — it is always evaluated.
+
+**Source-reading structural tests are the house style here** and there are now six:
+`map-is-true`, `session-state` (×3), `marks-are-spent` (×2). Reach for one whenever a defect is a
+*shape* rather than an instance.
+
+## Still open, with the diagnosis already done
+
+- **`incident.open` raises `this.handling` before the work it guards.** A second session refusing
+  while an incident is opening is dropped: never quarantined, never in Guardian's brief, released
+  as innocent by the verdict. Verified by holding `freezeEntireFleet` open and calling `open`
+  twice — `quarantined: ["w-A"]`, `w-B quarantined? false`. The fix belongs in the hold table: a
+  fourth reason plus a column saying a verdict may not clear a hold it never judged.
+- **`Worktrees.create` pushes to its rollback list after the work**, so `git worktree add -b`
+  creating the branch and then failing leaves `silicyte/<sid>` behind. (Confirmed that `add -b`
+  does leave the branch when it fails on an existing directory.)
+- **The polled rate-limit map is replaced, not merged**, so a reply omitting a window erases the
+  last reading of it. Left alone deliberately: whether a window the account stopped reporting
+  should still hold the fleet is a question about the API's meaning, not about this code.
+- **`awaitVerdict` subscribes after `await spawnGuardian`.** Shape present, window a couple of
+  microtasks, no plausible way to land a message in it.
+
+## The panel's state frames carry less than the panel shows — diagnosed 2026-09-22
+
+`TreeNode` (`web/server.ts`) carries `sid, role, title, status, model, effort, tokens, startedAt,
+frozenReason, isHumanEntryPoint, backgroundTasks, reports`. It carries **no context**, and neither
+does `fleetState()`, and no event frame does either. `refreshSelectedStatus` merges only
+`{ record: live }`.
+
+So `known.context` is forever whatever the single `fetch` in `showSession` put there. That is the
+whole of backlog #60 — and the same sentence explains the `session:`, `connectors:` and worktree
+tags, which live only in `/api/session/:sid`.
+
+**The consequence nobody had noticed:** because `known.context` stays truthy, `renderContextBar`
+always takes its first branch, so a session that parks never gets the `stale` class and never
+falls back to `lastKnownContext`. The bar looks fresh and is wrong.
+
+One job, not three: **put what the detail panel shows into the snapshot.**
+
+Also: the panel hardcodes `HEADLINE_LIMIT_TYPES = ['five_hour']` and never reads the
+`primaryLimitType` the server sends — same value today, free to diverge in silence.
+`/api/session/:sid` sifts up to 5000 bus events to send 120 the panel destructures away.
+
+## `tests/panel-harness.ts` can drive async paths now
+
+`askThePanel` used to print its answer synchronously, before the first microtask, so nothing with
+an `await` in it could be asked a question. It now answers on a `setTimeout(…, 0)`: every
+microtask has drained, so a stubbed `fetch` that resolves immediately has completed. Everything
+already in the file is synchronous and was unaffected.
+
+If you need to wait for something a *timer* resolves, the older trick still applies: in
+`setUpFirst`, stash `console.log`, stub it, and call the real one at the end of your own chain.
+
+**And a trap that reads as a passing mutation:** a test that awaits an answer nobody will give
+*hangs*, and a mutation run that hangs looks exactly like one you have not read yet. Answer
+everything the test asked for — with the guard in place the extra answer lands on nobody.
