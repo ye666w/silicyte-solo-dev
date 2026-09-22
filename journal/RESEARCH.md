@@ -1239,3 +1239,62 @@ If you need to wait for something a *timer* resolves, the older trick still appl
 **And a trap that reads as a passing mutation:** a test that awaits an answer nobody will give
 *hangs*, and a mutation run that hangs looks exactly like one you have not read yet. Answer
 everything the test asked for — with the guard in place the extra answer lands on nobody.
+
+## The hold table grew a fourth reason and a fourth column — `ed8f1be`, `c2f55cc`
+
+`itRefusedWhileAnotherIncidentWasOpen`, and the column `aVerdictMayLiftIt`.
+
+One incident is handled at a time, and that latch stood above the line that quarantines, so a
+second session the classifier fired in during an open incident was never held, never in Guardian's
+brief, and released as innocent by a verdict that judged somebody else.
+
+Designing it in the table is what showed the trap: **if a verdict may not lift it, neither may
+Resume, and the session is stuck for good.** Those are different columns. A verdict may not lift a
+hold it never judged; the operator's Resume may, and the question filed for them says so.
+
+The fourth column paid for itself at once — it replaced both the `heldBecause !== 'theAccountRanOut'`
+in the verdict's clean filter and the matching special case in the loop below it.
+
+**`unfreeze` clears `heldBecause` when it lifts a freeze.** Whatever lifts a hold clears the reason
+for it, or a resumed session runs carrying a hold that is no longer true and freezes itself again
+at the next restart. That rule removed a separate verdict-hold sweep from `resumeEverything`.
+
+## Connectors: an empty reading is not evidence — `2fdae74`
+
+`noteWhatASessionSees([])` used to wipe the remembered list and save it, so `keptAwayFrom`
+answered with nothing and **a role the config allows one connector received no `mcp__*` denials at
+all** — while `briefing.ts`, counting the same emptied list, still told it no connector was its
+own. Denial and sentence drifting opposite ways from one cause.
+
+Empty readings are ordinary: `askItOnce` returns `[]` on a throw, `learn` returns `[]` when its
+thirty-second window runs out, and a session started with `settingSources: []` (Guardian, setup)
+sees none of them. The asymmetry settles it — never forgetting a connector that has gone costs a
+denial on a tool that does not exist.
+
+`runDoctor` also stood up its own `Connectors` on a running fleet and let `learn()` save, so disk
+and the live supervisor's memory diverged and only a restart believed the disk. **A check should
+not write**: `probeWithoutRememberingIt()` exists for that and the doctor uses it.
+
+## Three worker passes over `src/`, 2026-09-22 — what is now read
+
+Twenty-three findings, every one verified by a run, no false positives. Reported clean:
+`registry.ts`, `bus.ts`, `workspace.ts`, `spending.ts`, `landing.ts`, `self-restart.ts`,
+`push-stream.ts`, `activity-log.ts`, `keeping-a-file.ts`, `skills.ts`, `briefing.ts`, `setup.ts`,
+`model-switch.ts`, `memory-watch.ts`, `capacity.ts`.
+
+Not yet read by anyone: `fleet-mcp.ts`, `write-guard.ts` (audited separately 2026-09-21),
+`guardian.ts`, `sandbox.ts`, `verdict.ts`, `timings.ts`, `config-file.ts`, `cli-binary.ts`,
+`supervised.ts`, `supervisor-messages.ts`, `session-state.ts`, `root-trouble.ts`,
+`unobserved-failure.ts`, `start.ts`, `setup-session.ts`, `doctor-cli.ts`.
+
+**The task shape that produced this**, worth copying verbatim: one sentence of what is wanted at
+the top; the exact file list; read `origin/main`, not the worktree; a description of the *shape*
+rather than a place to look; what is already decided and must not be reopened; at most N findings,
+most serious first, each with the two lines, one sentence of consequence, and a mandatory
+«проверено» naming what was run; a line saying "clean" is a complete answer; one turn.
+
+## A pipe eats the exit status of what feeds it
+
+`npm run typecheck 2>&1 | tail -4 && npm test` runs the tests even when the typecheck failed,
+because `&&` reads **tail's** status. Already known for `npm test`; it is true of every gate.
+Give each one its own line and its own `echo "…=$?"`.
