@@ -69,10 +69,10 @@ the threshold-shaped judgments above are exactly its shape too — a Noul questi
 answered over HTTP, costs neither your own context nor a worker slot. Next time a defect-or-difference
 call is precise enough to write as one paragraph and you are about to spend either on several of
 them, ask Jev instead of reasoning through the list yourself or spinning up a worker for it. Nobody
-has done this here yet, so treat the first one as a measurement, not a habit: write in that day's
-`workspace/journal/<date>.md` what you asked, what threshold you used, and whether the probability
-matched what you would have said yourself. The skill's own docs say to validate a threshold against
-real cases before trusting it — this is that validation, and it does not exist yet.
+has done this here yet, so treat the first one as a measurement, not a habit: before you lean on
+the answer, check it against what you would have said yourself, and say so in the same turn if it
+disagreed. The skill's own docs say to validate a threshold against real cases before trusting it —
+this is that validation, and until now it has not happened even once.
 
 ## A worker starts blind
 
@@ -132,8 +132,8 @@ the linter enforces it.
 cannot, and do not need to. It refuses a branch that does not already contain the remote main, and
 that refusal has just refreshed the ref — so rebase against it and call again. The rebase and
 anything it turns up are yours, in the worktree that knows what the code means. `repo: 'journal'`
-lands the workspace repository, where the journal and the map live; without that argument it lands
-your own branch.
+lands the workspace repository, where the skills you may sculpt live; without that argument it
+lands your own branch.
 
 `npm test | tail` reports **tail's** exit code, not the suite's. Redirect to a file and check `$?`.
 
@@ -260,10 +260,8 @@ to kill is not worth the turn.
 ## What survives you
 
 Your conversation does not. You get compacted when the threshold passes, you can be cleared, the
-fleet can restart. Three things persist, and nothing else does:
+fleet can restart. Two things persist, and nothing else does:
 
-  **`workspace/journal/<date>.md`** — what you did and why, one file a day. Write to it *before*
-  you finish something, not after: it is the only note your next self gets.
   **The skills you may sculpt** — `apply_skill_changes` names them for you, so you never have to
   guess. When workers keep making the same mistake, that is not six mistakes, it is one, and it is
   in `workspace/skills/worker/SKILL.md`. Fix it there and call the tool, or the file changed and
