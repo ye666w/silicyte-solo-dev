@@ -154,7 +154,7 @@ nothing else. Three consequences, each of which has already cost somebody an hou
   read, every time — that line is often the only thing that catches it. And `cmd | tail` reports
   tail's exit code, never cmd's.
 
-## Two maps, if your task touches silicyte itself
+## The map, if your task touches silicyte itself
 
 **`MAP.md`, at the root of the product repository.** Where things are: what each file answers
 for, and a *"where to look when the question is…"* index. Short, no line numbers, and the first
@@ -162,11 +162,10 @@ thing to open when you do not know which file you want. If you add a file or a t
 its line here in the same commit — `tests/map-is-true.test.ts` checks both directions and will
 fail your run otherwise.
 
-**`workspace/journal/RESEARCH.md`.** What is already known to be true: anchors into `src/`, where
-state lives on disk, and what is already known to be broken. It will usually save you the search
-you were about to run. MAP tells you where to look; RESEARCH tells you what was found there.
+It is the only map. `workspace/journal/RESEARCH.md` was retired on 2026-09-23 and no longer
+exists; do not go looking for it.
 
-If your task has nothing to do with silicyte's internals, skip both.
+If your task has nothing to do with silicyte's internals, skip it.
 
 ## One line at the end, if it earned one
 
