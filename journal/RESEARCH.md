@@ -840,6 +840,36 @@ Ranked by how much they would explain if true.
    the identifier (`refuseAWriteGrantNoRoleWillBeGiven`, `theWindowItMeasuredHasSinceRolledOver`)
    and so should you.
 
+## The write guard, after 2026-09-22 — what is closed and what is not
+
+Six gaps found by an opus worker, every one verified by asking `buildWriteGuard` directly rather
+than by running anything. **Closed** in `0f2ec5f` and `aea6915`:
+
+- `git --git-dir <path>` / `--work-tree <path>` with a **space** skipped the entire git branch:
+  only the `=` form was matched, so the target stayed at cwd and the path read as the subcommand.
+- `/usr/bin/git` walked past the git rules *and* the unreadable-program scan at once — one looked
+  for a token equal to `git`, the other took the basename.
+- The stopping-verb test matched after any whitespace, so any `grep` carrying that word and a path
+  from this product was refused. **This cost root two turns in one sitting.** Anchored now.
+- `pkill -f node` was allowed, because the check asked for the words silicyte or supervisor. The
+  supervisor is a node process.
+- The unreadable-program scan walked only `ORCHESTRATOR_OWN_FILES`, so `python3 -c` writing into
+  a **shared checkout's `.git`** passed while the shell redirect was refused. Now carries those.
+- `ln` was read for its last path only, so aiming a link anywhere looked like making an ordinary
+  file. It names every path it is given now.
+
+**STILL OPEN, and not closable by reading command text.** `isInside` compares paths lexically;
+the OS resolves realpath; and `everywhereASessionMayWrite` **must** include each shared checkout's
+`.git`, because committing from a worktree writes there. A symlink inside a worktree pointed at
+that directory is therefore a door the guard cannot see — demonstrated on the filesystem, not
+argued. `ln` is closed, so what remains is a symlink made by a program the guard cannot follow, or
+one that already exists. Fixing it properly means resolving symlinks inside the hook, on every
+command; nobody has measured what that costs or what it would falsely refuse.
+
+**The rule this leaves:** the guard is a second line, not the line. The OS decides, the guard only
+reads what you typed. Anything that reaches the filesystem another way reaches what the sandbox
+permits, and the sandbox permits more than the guard does — see the entry on `filesystem.allowWrite`.
+
 ## Checked in the fourth pass and found FALSE — do not re-derive these
 
 Research round 2026-09-22, four workers on `claude-haiku-4-5-20251001` plus root. ~25 claims
