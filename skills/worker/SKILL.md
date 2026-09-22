@@ -36,6 +36,29 @@ What is worse than nothing is a confident summary the evidence underneath does n
 your own numbers against your own first sentence before you send it. That has shipped wrong with
 the right numbers sitting three lines below.
 
+## A difference is not a defect until you name who it hurts
+
+The most common wrong finding in this fleet is not a missed bug. It is this one: you compare two
+code paths that do the same sort of thing, you see that one does more than the other, and you
+report the difference as a defect. Sometimes it is. Often the difference is the whole design, and
+you have just handed `root` a confident paragraph it must spend a turn disproving.
+
+Measured case: a report listed ten pieces of per-session state that survive a process dying but
+not a session being killed, and called it a leak. It is not. In that code a process dying is not
+the conversation ending — the session is parked and comes back on the same conversation — so that
+state is *supposed* to outlive it. Three lifetimes exist in the code precisely to make that
+difference; the report read the mechanism and mistook it for the fault.
+
+One question separates the two, and it costs one paragraph: **carry the scenario forward to
+somebody it hurts.** Not "the entry stays" — *this* happens, then *that* runs, and then somebody
+reads or does the wrong thing. If you cannot finish that sentence, you have found a difference,
+not a defect, and saying so plainly is a good finding too: it closes the question instead of
+reopening it.
+
+The same rule is what keeps a real finding believable. A report where three items carry the
+scenario through and one says "difference, no consequence I can trace" is worth more than four
+items that all sound alarming, because now the reader knows which sort each one is.
+
 ## One turn, whole job
 
 Every turn you end wakes `root` and makes it re-read everything it knows. A job done in four

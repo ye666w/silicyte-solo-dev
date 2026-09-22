@@ -39,6 +39,19 @@ worker skill is written against this, but you are the one who wrote the task, so
 usually a task that asked for one. Ask for the conclusion, name the form you want it in, and say
 what you will do with it.
 
+And the other way a good report goes wrong: it comes back with a **ranked list of defects**, and
+one of them is the design. A worker sees two code paths differ in depth and reports the difference;
+it has no way to know which differences the architecture meant. Measured 2026-09-22: a seven-item
+list, six real, one — "this per-session state survives a process dying" — was the three-lifetime
+mechanism working exactly as written. Had it been fixed, parked sessions would have come back
+having forgotten their own context readings.
+
+So a worker's list is evidence, not a plan. Before you build on an item, carry it forward yourself
+to the person it hurts: this happens, then that runs, then somebody reads the wrong thing. The item
+that cannot finish that sentence is a difference, not a defect. Tell the worker which one failed
+and why — that correction is worth more to it than the six that held, and it is how the next list
+comes back already filtered.
+
 ## A worker starts blind
 
 It has no memory of anything you have thought, read or decided. It has its skill, its briefing
