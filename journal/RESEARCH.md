@@ -5,7 +5,8 @@ it deliberately carries no line numbers. This file is the opposite trade: it is 
 mine, and it carries anchors, measurements and suspicions — the things that go stale but pay
 for themselves while they are fresh.
 
-**Pinned to:** product and this fork both at `157de77`, 20.09.2026.
+**Pinned to:** product `main` at `f4341e7`, 22.09.2026. (Was `157de77` for two days after the
+file said otherwise — if this line looks old, it is, and so is anything below that cites a number.)
 **Lives at** `workspace/journal/RESEARCH.md` — inside the workspace repo, so it is versioned with
 the config and the skills and survives every restart and every clear. It sits under `journal/`
 rather than beside `fleet.config.ts` for a blunt reason: that is the only place in the workspace a
@@ -22,6 +23,49 @@ current by construction.
 
 A few bare numbers survive below in prose. Treat every one of them as approximate, and if it
 disagrees with reality believe the file.
+
+## Read this much before your first edit, and the rest when you have a question
+
+This file is long because it accretes. **That is its failure mode, not its virtue.** On 22.09.2026
+a session re-derived a measurement three sections below say "do not re-derive", and found three
+sections describing defects that had already been fixed — because it went looking *after* it
+started, not before. What follows is the short list that pays for itself every time.
+
+1. **Rails move only on `fleet_restart` with `updateRails: true`.** Landing is not running, and
+   the gap is not visible from the branch. Measure it against the source, never against memory —
+   grep a marker of the fix in `silicyte-solo-dev/src/` *and* in `git -C silicyte grep <marker>
+   origin/main`. → *The three checkouts*, *Where the rails come from*.
+2. **Chain gates with `&&`, never `;`.** And `npm test | tail` reports **tail's** exit status, not
+   the suite's. Both have shipped a red suite as green. → *A pipe eats the exit status*.
+3. **`$TMPDIR`, never `/tmp`.** The write guard reads your command *text*, so a grep whose pattern
+   merely contains a protected path is refused too. Rephrase; do not argue.
+   → *The write guard, and what it cannot see*.
+4. **`supervisor.ts` is large and not tangled. Do not propose splitting it.** The measurement is
+   done, twice, and it says there is no seam. → *`supervisor.ts` is large and not tangled*.
+5. **Mutation is the discipline, not reading.** Commit, change one thing in `src/`, re-run,
+   restore. A suite still green is a hole, and re-reading the code finds almost none of them.
+   → *The fifth worker task*, *The three shapes of an untested boundary*.
+6. **A difference between two code paths is not a defect until you can name who it hurts.** Carry
+   the scenario forward to a person reading or doing the wrong thing. If the sentence will not
+   finish, you found the design. → *Смерть сессии бывает двух сортов*.
+7. **Compaction: keep the instruction on one line and well under 3 KB**, and check `self_context`
+   afterwards — nothing confirms it ran. → *Compaction: the CLI never reports a cancellation*.
+8. **The network is open; `~/.ssh` is not.** Landing goes through `fleet_land` and needs no key.
+   → *The network, measured 2026-09-21*.
+
+### This file has no test, and `MAP.md` does
+
+`tests/map-is-true.test.ts` fails if a source or test file is missing from `MAP.md`, in both
+directions, so that file is true by construction. **Nothing guards this one.** It is true only for
+as long as somebody keeps it so, and the evidence above is that for two days nobody did.
+
+So two duties come with writing here, and they are the whole of the discipline:
+
+- **Every claim carries its evidence** — a commit hash, a grep string, or the measurement and the
+  date. A claim with neither cannot be checked and will outlive its truth.
+- **A fixed thing is never deleted.** It gets a line saying which commit fixed it and stays where
+  it is. The list of what was once wrong is the most reusable part of this file — but only while
+  it is honest about which entries are past tense.
 
 ## The three checkouts
 
@@ -1191,21 +1235,17 @@ stays allowed, and is correct — it is always evaluated.
 
 ## Still open, with the diagnosis already done
 
-- **`incident.open` raises `this.handling` before the work it guards.** A second session refusing
-  while an incident is opening is dropped: never quarantined, never in Guardian's brief, released
-  as innocent by the verdict. Verified by holding `freezeEntireFleet` open and calling `open`
-  twice — `quarantined: ["w-A"]`, `w-B quarantined? false`. The fix belongs in the hold table: a
-  fourth reason plus a column saying a verdict may not clear a hold it never judged.
-- **`Worktrees.create` pushes to its rollback list after the work**, so `git worktree add -b`
-  creating the branch and then failing leaves `silicyte/<sid>` behind. (Confirmed that `add -b`
-  does leave the branch when it fails on an existing directory.)
+- ~~**`incident.open` raises `this.handling` before the work it guards.**~~ Fixed — `ed8f1be`,
+  `c2f55cc`. The hold table grew the fourth reason it needed
+  (`itRefusedWhileAnotherIncidentWasOpen`) and the column that goes with it.
+- ~~**`Worktrees.create` pushes to its rollback list after the work.**~~ Fixed — `06c47e3`.
 - **The polled rate-limit map is replaced, not merged**, so a reply omitting a window erases the
   last reading of it. Left alone deliberately: whether a window the account stopped reporting
   should still hold the fleet is a question about the API's meaning, not about this code.
 - **`awaitVerdict` subscribes after `await spawnGuardian`.** Shape present, window a couple of
   microtasks, no plausible way to land a message in it.
 
-## The panel's state frames carry less than the panel shows — diagnosed 2026-09-22
+## The panel's state frames carried less than the panel showed — FIXED, kept for the shape
 
 `TreeNode` (`web/server.ts`) carries `sid, role, title, status, model, effort, tokens, startedAt,
 frozenReason, isHumanEntryPoint, backgroundTasks, reports`. It carries **no context**, and neither
@@ -1220,11 +1260,20 @@ tags, which live only in `/api/session/:sid`.
 always takes its first branch, so a session that parks never gets the `stale` class and never
 falls back to `lastKnownContext`. The bar looks fresh and is wrong.
 
-One job, not three: **put what the detail panel shows into the snapshot.**
+One job, not three: **put what the detail panel shows into the snapshot.** Done — `TreeNode` now
+carries `context`, and the context bar goes stale when it should.
 
-Also: the panel hardcodes `HEADLINE_LIMIT_TYPES = ['five_hour']` and never reads the
-`primaryLimitType` the server sends — same value today, free to diverge in silence.
-`/api/session/:sid` sifts up to 5000 bus events to send 120 the panel destructures away.
+The second half of this section is also closed — `f4341e7`. The panel kept **two** copies of
+decisions the server owns: `HEADLINE_LIMIT_TYPES` beside the `primaryLimitType` it was already
+being sent and ignoring, and `ACCOUNT_WIDE_LIMIT_TYPES` beside the two windows `thresholdFor`
+names in `rate-limits.ts`. `thresholdFor` is one table now, `LIMITS_THAT_CAN_STOP_THE_FLEET` is
+derived from it, the server sends both, and the panel draws what it is told.
+
+**The shape worth keeping from all of this:** a client that restates a decision the server already
+transmits is not a duplication a test will find, because both copies are right on the day they are
+written. Grep for the constant's *value*, not its name — `five_hour` appeared in two files under
+two different names. Still open in the same family: `/api/session/:sid` sifts the whole bus history
+to send events the panel destructures away.
 
 ## `tests/panel-harness.ts` can drive async paths now
 
