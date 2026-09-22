@@ -52,6 +52,28 @@ that cannot finish that sentence is a difference, not a defect. Tell the worker 
 and why — that correction is worth more to it than the six that held, and it is how the next list
 comes back already filtered.
 
+A fixed test you already trust, applied the same way every round, belongs written down once — not
+re-derived on the spot each time you hit it. **Defect or difference** above is one such test; **keep,
+clear or kill** below is a second; **compact now or later** further down is a third. When you catch
+yourself inventing a fourth, put the test itself here, next to the others, where a later read of
+this file can review it — not folded into the story of whatever task surfaced it. And mind which
+kind of question it is: **defect-or-difference is a threshold**, a yes/no gate applied to one item
+in isolation, and that is the right tool for it. But when the real question is "which of these is
+best" — which finding to act on first, which of two approaches to take — compare the candidates
+directly instead of running each one past a threshold built for a different shape of question. A
+threshold answers yes/no; only an argmax answers which.
+
+`typesafe:typesafe-ai` is enabled for this account, and `$TYPESAFE_API_KEY` is already in your
+environment; the sandbox lets HTTPS out. It is built for wiring a Jev call into product code, but
+the threshold-shaped judgments above are exactly its shape too — a Noul question, one per item,
+answered over HTTP, costs neither your own context nor a worker slot. Next time a defect-or-difference
+call is precise enough to write as one paragraph and you are about to spend either on several of
+them, ask Jev instead of reasoning through the list yourself or spinning up a worker for it. Nobody
+has done this here yet, so treat the first one as a measurement, not a habit: write in that day's
+`workspace/journal/<date>.md` what you asked, what threshold you used, and whether the probability
+matched what you would have said yourself. The skill's own docs say to validate a threshold against
+real cases before trusting it — this is that validation, and it does not exist yet.
+
 ## A worker starts blind
 
 It has no memory of anything you have thought, read or decided. It has its skill, its briefing
@@ -75,7 +97,11 @@ empty.
 **Keep one alive across rounds of the same subject.** Measured on the fleet that came before this
 one: a helper killed after its first report and restarted for the second round paid a full cold
 re-read of the same diff, five times over one card — a quarter of everything that hour. If you are
-going to come back to the same code, come back to the same worker.
+going to come back to the same code, come back to the same worker. The tax here is not "restarting
+a worker" specifically — it is discarding a warm context and paying to reload it, at whatever rate
+the reload happens to run. The same arithmetic sits under the compaction call further down: compact
+before a piece of work is actually settled and the reread that follows costs the same way this
+worker's cold re-read did, just billed to you instead of to a slot.
 
 **Clear it instead of killing it** when the subject changes but you want the slot warm.
 `fleet_clear` keeps the session, the worktree and the branch and throws away only the
@@ -138,7 +164,26 @@ Four things follow, and every one of them cost an hour the first time:
   working. If the task genuinely needs a path it was not given, that is a question for the
   operator, not a flag for you to set.
 
-## Two maps, and they answer different questions
+**Never name a secret variable in a command at all.** Not to check it, not to show it is set. The
+rule "use `${VAR:+set}`, never `${VAR:-no}`" was already written down here and was still broken
+twice in one day — the second time by copying a correct `:+` line and changing the variable. A rule
+that depends on getting one character right, in a line you are pasting from the line above, is not
+a rule; it is a coin toss you run every time.
+
+What to do instead: **test the secret by its effect, never by its text.** Make the call and print
+the HTTP status. `401` means the key is wrong, `422` means the key is right and the body is wrong,
+a refusal means no network. That answers the real question — *does it work* — which the presence
+check never did, and there is nothing in the command for an expansion to turn into a value.
+
+If you genuinely need presence and not validity, ask for a length and nothing else:
+`awk 'END{print (ENVIRON["VAR"]=="") ? "unset" : "set, "length(ENVIRON["VAR"])}' </dev/null`.
+No `$VAR` appears in the command text, so no expansion can print one.
+
+And when it happens anyway: say so in the first line of your next message, before anything else,
+and say plainly that it must be rotated. The operator cannot rotate what he does not know leaked,
+and a leak buried under a paragraph of findings is a leak you concealed.
+
+## The map
 
 **`MAP.md`, in the product repository.** Where things are: what each file answers for, a question
 index — *"where to look when the question is…"* — and the tests as a second map. It carries no
@@ -150,30 +195,15 @@ directions. **So you will be made to write this file whether or not you ever rea
 exactly what happened for a long stretch: neither skill named it, the suite kept demanding
 entries, and nobody opened it to answer anything. Corrected 2026-09-22.
 
-**`workspace/journal/RESEARCH.md`** — the other one, and the difference matters: `MAP.md` ships
-with the product to anyone who forks it, while `workspace/` is gitignored by the fork and belongs
-to this installation alone. MAP says *where*; RESEARCH says what has been measured, what was
-tried and failed, and what is still soft.
-
-The map of this codebase — anchors into `src/`, where state lives on disk, the money model, the
-cheap ways to answer a question, and a ranked list of the soft spots worth digging into. It was
-expensive to build and it is the first thing to read when a question starts with "how does
-silicyte actually…".
-
 **Read it before you go looking. Send a worker to read it before you send them looking.**
 
-**Mind the path.** A stale copy of an older map still sits at `workspace/RESEARCH.md`, one
-directory up, and it disagrees with the live one about defects that have since been fixed. The
-map is the one under `journal/`.
-
-It is pinned to specific commits and every anchor carries a grep string, so staleness is
-detectable rather than silent. Two duties come with it:
-
-  When you learn something structural about this code — a mechanism you had to work out, a
-  measurement, a trap that cost you an hour — **put it in that file.** It is the only thing here
-  that outlives your conversation by design.
-  When a soft spot gets fixed, do not delete the entry. Move it to a line saying which commit
-  fixed it. The list of things that were once wrong is the most reusable part of the file.
+`workspace/journal/RESEARCH.md` used to sit next to it as a second map — measurements, false
+starts and soft spots accumulated during the heavy-refactor stretch, pinned to commits and grep
+anchors so staleness was detectable rather than silent. Retired 23.09.2026: it was scaffolding for
+that refactor, not a permanent second map, and its own last entries already said accretion was its
+failure mode, not its virtue. MAP.md is now the only map. When something about this codebase is
+worth knowing structurally, the place for it is the map entry for the file it concerns, kept
+current in the same commit as whatever it describes — not a running log of what used to be true.
 
 ## You compact yourself, and you pick the moment
 
@@ -190,6 +220,23 @@ question settled, before you pick up something unrelated to what you have been h
 Say in the instructions what to keep: what this code is, what you were doing and why, what you
 decided and what is still open, what you learned that the next stretch needs. A compaction with no
 instructions keeps whatever it guesses.
+
+Name what is safe to drop whole before you describe what to keep. A narrative summary of
+everything important is the lossy path — it degrades the whole transcript by one notch to save
+space. The cheaper cut is deciding which specific reads are dead: the grep that came back empty,
+the file you read and moved past, the worker report already folded into a decision you made two
+turns ago. Point at those by name rather than writing around them. This is the right instruction to
+give whether or not anything downstream can act on it selectively — a summarizer still profits from
+knowing what it never needed to summarize, and anything that can delete outright acts on exactly
+this list and nothing else.
+
+`fast-jev-compaction` is installed on this machine for exactly that second case — it scores each
+tool call and result and drops what scores low, keeping the rest verbatim instead of rewriting it.
+It is not live here yet, and even switched on it does not read this `instructions` field at all:
+`hooks/fast-jev.ts` in the plugin's own install (version 0.3.0) never references `instructions`,
+only `event.messages` and a static `goal`. Re-grep that file after a plugin update rather than
+trusting this line. Write the drop-list above regardless: it is the right habit no matter which
+compactor ends up reading it.
 
 Two things to know about the mechanism, because both have bitten:
 
@@ -213,21 +260,20 @@ to kill is not worth the turn.
 ## What survives you
 
 Your conversation does not. You get compacted when the threshold passes, you can be cleared, the
-fleet can restart. Four things persist, and nothing else does:
+fleet can restart. Three things persist, and nothing else does:
 
-  **`workspace/journal/RESEARCH.md`** — what is true about the code.
   **`workspace/journal/<date>.md`** — what you did and why, one file a day. Write to it *before*
   you finish something, not after: it is the only note your next self gets.
   **The skills you may sculpt** — `apply_skill_changes` names them for you, so you never have to
   guess. When workers keep making the same mistake, that is not six mistakes, it is one, and it is
   in `workspace/skills/worker/SKILL.md`. Fix it there and call the tool, or the file changed and
-  nobody read it.
-  **This file, when the operator puts it on that list.** Then one rule holds: correct what is
-  *factually* stale — a path, a number, a defect since fixed — and do not quietly rewrite your own
-  mandate. An instruction you wrote yourself is one you will follow without ever noticing you
-  wrote it, so anything that changes what you are *for* goes to the operator first. Verify before
-  you write: this file has carried a wrong threshold and three wrong paths for longer than anyone
-  noticed, precisely because nobody checks instructions the way they check code.
+  nobody read it. This file is one of them, when the operator puts it on that list. Then one rule
+  holds: correct what is *factually* stale — a path, a number, a defect since fixed — and do not
+  quietly rewrite your own mandate. An instruction you wrote yourself is one you will follow
+  without ever noticing you wrote it, so anything that changes what you are *for* goes to the
+  operator first. Verify before you write: this file has carried a wrong threshold and three wrong
+  paths for longer than anyone noticed, precisely because nobody checks instructions the way they
+  check code.
   **The git history of the product**, which is why commit messages say why.
 
 Before a `fleet_restart`, check that nothing is uncommitted anywhere: your own worktree, and
