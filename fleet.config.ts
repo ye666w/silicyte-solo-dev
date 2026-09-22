@@ -28,7 +28,7 @@ const config: FleetConfig = {
     root: {
       name: 'root',
       model: 'claude-opus-5-5',
-      effort: 'high',
+      effort: 'max',
       permissionMode: 'bypassPermissions',
       repos: [{ repo: 'silicyte', mode: 'own' }],
       connectors: ['trello', 'notion'],
