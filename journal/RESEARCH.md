@@ -921,6 +921,29 @@ disagree about who may do what, and only one of them knows it.
 Measured 2026-09-22: panel listening on 4173 confirmed, connection from a sandboxed session
 refused. Not filed as a card yet.
 
+## A drain belongs to a process, not to a session — `060386e`
+
+`drainIntoBus` ends in a `finally` that marks the session stopped unless it is parking. That
+finally is per **process**. Nothing tied it to the session's *current* process, so when a
+replacement had already taken over, the older drain finishing last closed a session that was
+working. `setStatus` emits nothing, so the record said nothing at all: no kill, no death, no halt.
+
+Reported from production. A root whose turn failed was relaunched on the same conversation,
+answered normally twenty seconds later, then left the registry and the panel while its process
+kept opening pull requests. Six sessions were left reporting to a root that no longer existed and
+`humanEntryPointSid` was null, so nothing could reach the operator.
+
+**The tell in the log was two `init` events a second apart** — two processes, one sid.
+
+**The detail that decides the fix:** `Registry.update` is `Object.assign` onto the *same* record
+object, so `rec.handle` inside an old drain is already the **new** handle by the time its finally
+runs. Comparing `rec.handle` to the registry's proves nothing. The handle has to be captured in a
+local when the drain starts.
+
+Same disease as `reportUnexpectedDeath` and the cut-short mark, all three found on 2026-09-22:
+**an obligation resting on a value read later than somebody else overwrote it.** When you find one
+of these, look for the others before you stop.
+
 ## Traps that have already cost time
 
 - `npm test | tail` reports **tail's** exit code. Write to a file and check `$?`.
