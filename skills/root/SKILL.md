@@ -63,78 +63,6 @@ best" — which finding to act on first, which of two approaches to take — com
 directly instead of running each one past a threshold built for a different shape of question. A
 threshold answers yes/no; only an argmax answers which.
 
-## Jev is a gate, not an offer
-
-This section used to read "default to it" and "including the ones that feel obvious". On
-23.09.2026 that exact wording was in this file and the session skipped the call anyway, then wrote
-the reasoning for skipping into the operator's own task as though disclosing a breach were the
-same as not committing one. He had to ask twice. The excuse was that loading the skill costs
-context; the call, once you know it, costs about a minute. Everything else in this file that gets
-obeyed is attached to a measured failure, and this section had none. Now it has this one.
-
-**Three gates. At each, the turn does not continue until Jev has answered.**
-
-  **Before every `ask_operator`** — Noul: *given the cost and the reversibility, is this the
-  operator's decision rather than mine?* Asked about that day's question, after two tasks had
-  already been filed on it: 0.07. It had never been his.
-  **Before acting on any single item in a worker's report** — Noul: *does this describe a concrete
-  failure that reaches a person, or a difference between two code paths nobody is hurt by?*
-  **Before putting three or more things in a priority order** — Score, every item against one
-  rubric, in one request. A threshold answers yes/no; only comparing candidates answers which.
-
-Nothing else is gated. Three is short enough to be kept; a longer list would be a preference
-again. Choice exists too — keep, clear or kill, when more than the two obvious cases are in play —
-but reach for it, do not wait for a gate.
-
-**Do not load the `typesafe:typesafe-ai` skill to do this.** Its docs are for writing an
-integration; you are making one call and the call is written out below. That is where the context
-saving actually is, and it is why the excuse above does not survive contact with the recipe.
-
-`$TYPESAFE_API_KEY` is in the environment and must never appear in a command's text, so a script
-writes it into a curl config that is deleted in the same command. `node` cannot make the request
-itself: raw sockets get no DNS here and `fetch` dies on `ENOTFOUND`. Everything outward goes
-through `curl`. Write the script with a quoted heredoc — a long `node -e '...'` carrying escaped
-double quotes dies in zsh with `unmatched "` — and name the scratch directory by its literal
-absolute path, because the write guard refuses a destination it cannot resolve through a variable.
-Inside the heredoc every JavaScript string wants **double** quotes: the text is passed through
-untouched, so one apostrophe in `the agent's own judgement` closes a single-quoted string and the
-script dies at a line you were not looking at. Both of those cost a turn each the day this
-recipe was written down, which is the whole reason it is written down.
-
-    cat > /literal/tmp/path/ask.cjs <<'SCRIPT'
-    const fs = require('fs'), T = '/literal/tmp/path/';
-    fs.writeFileSync(T + 'body.json', JSON.stringify({
-      state: { ...everything the question needs to be answerable... },
-      model: 'jev-latest',
-      questions: {
-        my_id: { type: 'noul', instructions: 'the yes/no question, referring to `state.field`',
-                 criteria: { true: 'what a yes means', false: 'what a no means' } },
-      },
-    }));
-    fs.writeFileSync(T + 'hdr.conf', 'header = "Authorization: Bearer ' + process.env.TYPESAFE_API_KEY + '"\n');
-    SCRIPT
-    node /literal/tmp/path/ask.cjs
-    curl -sS --config /literal/tmp/path/hdr.conf -X POST https://api.typesafe.ai/v1/systemone \
-      -H 'Content-Type: application/json' -d @/literal/tmp/path/body.json
-    rm -f /literal/tmp/path/hdr.conf
-
-It answers `{"answers":{"my_id":{"type":"noul","noul":0.07}}}`. Every gated question a turn owes
-goes in **one** request: they run in parallel and cannot see each other's answers. Score takes
-`criteria` as an ordered array of levels, Choice as a map of option to rubric.
-
-**Say the number out loud.** The answer is an input, not a verdict — weigh it the way you weigh a
-worker's report. But write it into the message: *"Jev: 0.07 — not his to decide."* A file cannot
-stop you skipping a gate; what it can do is make the skip legible to the person reading, and a
-decision reported without its number is exactly that. If the call fails — 4xx, no route, a refused
-host — say so in the first line and decide without it. Silence about a failed gate reads the same
-as a skipped one, which is how this section came to be rewritten.
-
-Text is not enforcement and this section does not pretend to be. Real enforcement is a hook in
-`src/` that refuses `ask_operator` without a Jev answer recorded in the same turn, the way
-`write-guard.ts` refuses a path and `map-is-true.test.ts` makes the map true whether or not anyone
-reads it. That is a change to the rails, so it is the operator's to authorise — which is itself a
-question for the first gate above.
-
 ## A worker starts blind
 
 It has no memory of anything you have thought, read or decided. It has its skill, its briefing
@@ -291,14 +219,6 @@ give whether or not anything downstream can act on it selectively — a summariz
 knowing what it never needed to summarize, and anything that can delete outright acts on exactly
 this list and nothing else.
 
-`fast-jev-compaction` is installed on this machine for exactly that second case — it scores each
-tool call and result and drops what scores low, keeping the rest verbatim instead of rewriting it.
-It is not live here yet, and even switched on it does not read this `instructions` field at all:
-`hooks/fast-jev.ts` in the plugin's own install (version 0.3.0) never references `instructions`,
-only `event.messages` and a static `goal`. Re-grep that file after a plugin update rather than
-trusting this line. Write the drop-list above regardless: it is the right habit no matter which
-compactor ends up reading it.
-
 Two things to know about the mechanism, because both have bitten:
 
   **A compaction is only a message.** `self_compact` answers "Compaction queued" and nothing
@@ -344,11 +264,6 @@ unstaged loses it.
 You are the session the human talks to. `ask_operator` is yours and it is the front door, not the
 fire exit — a decision that is theirs, a cost only they can authorise, anything irreversible, any
 question where being wrong is expensive. An unnecessary question costs them ten seconds.
-
-This is the first gate in **Jev is a gate, not an offer** above, and it is not a softer copy of
-it: *does this need the operator, or can I decide it.* No `ask_operator` call leaves without that
-Noul answered and its number written into what you send him. The ones that feel obvious are the
-whole point — they are the cheapest to check and the only ones anybody ever skips.
 
 `account_limits` is also yours. The fleet stops itself at the percentages set in
 `workspace/fleet.config.ts` — `stopFleetAtFiveHourPercent` and `stopFleetAtWeeklyPercent` — and it
