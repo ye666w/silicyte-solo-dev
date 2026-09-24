@@ -1,8 +1,8 @@
 # The panel's new theme — design spec (24.09.2026)
 
 Asked by the operator: "prettier and more solid", then "the new theme first, chat functions after".
-Shipped as a theme chosen in Settings, Appearance (per browser, localStorage), next to "Classic",
-so he compares both live: sessions cannot render the panel (bind() is denied), he can.
+It replaces today's look outright: he said there is no Classic to keep (24.09), so there is one token
+set in :root and no theme switch. Sessions cannot render the panel (bind() is denied); he looks.
 
 ## Principles
 
@@ -104,19 +104,13 @@ Scrollbars 8px, surface-4 thumb, transparent track. Empty states: a 24px text-4 
 text-2 title, a text-sm text-3 hint.
 
 Icons: our own inline SVG set, Lucide-style (24 viewBox, 1.75 stroke, round caps, currentColor),
-built with createElementNS, replacing every text glyph (▶ ◼ ✉ ☰ ⚙ × ‹ › ▾ ◆ ✕ →) in both themes.
-
-## Classic
-
-A second token set that reproduces today's look as closely as the token model allows (today's hexes,
-the #7c8cff accent as the primary fill, 7px cards). Structural fixes — icons, focus rings, reduced
-motion, status words, the single button system — apply to both themes.
+built with createElementNS, replacing every text glyph (▶ ◼ ✉ ☰ ⚙ × ‹ › ▾ ◆ ✕ →).
 
 ## Guards (tests)
 
-No colour literal in app.html outside the theme token blocks; every var() used is defined in both
-theme blocks; text-3 ≥ 4.5:1 and text-1, text-2 comfortably above it on surface-2; the theme is
-applied before first paint (no flash); status never rendered as a colour alone.
+No colour literal in app.html outside :root; every var() used is defined in :root; text-3 ≥ 4.5:1
+and text-1, text-2 comfortably above it on surface-2, computed from the token values; reduced motion
+covers animations and transitions; status never rendered as a colour alone.
 
 ## What the operator's screenshots added (24.09, attachments 21e64801…png and 2746f754…png)
 
