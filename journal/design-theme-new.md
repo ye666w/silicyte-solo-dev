@@ -117,3 +117,20 @@ motion, status words, the single button system — apply to both themes.
 No colour literal in app.html outside the theme token blocks; every var() used is defined in both
 theme blocks; text-3 ≥ 4.5:1 and text-1, text-2 comfortably above it on surface-2; the theme is
 applied before first paint (no flash); status never rendered as a colour alone.
+
+## What the operator's screenshots added (24.09, attachments 21e64801…png and 2746f754…png)
+
+The code inventory missed how the panel reads as a whole:
+- Most chrome is mono: header stats, the author label over every message, buttons, tags, tabs, task
+  titles, node labels. New theme: --font-ui (sans, tabular-nums for numbers) for everything read as
+  interface; --font-code (mono) only for code, ids, paths, model ids, commit hashes. Folded into phase A.
+- Nodes are glossy 3D spheres, a busy one filled with saturated green; the selected root wears the
+  accent ring. New theme: flat body, 2px status ring, selection by a text-1 ring and halo. Phase A where
+  CSS reaches, the rest in B.
+- Every worker is labelled just "worker" in the largest type on the canvas, with only a token count
+  below; nothing tells two workers apart. Phase B: the short sid (or title) as the label, the role as a
+  caption, then status word · model, tokens in the tooltip.
+- Every message is its own bordered card under its own "root" label. Phase B: one author line with the
+  time per run of consecutive messages from the same author; the session's text unboxed.
+- The budget meter is green at 64%. Phase B: neutral fill, frozen from a warning threshold, danger at
+  the stop threshold, a tick at the stop.
