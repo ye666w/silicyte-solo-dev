@@ -144,6 +144,11 @@ nothing else. Three consequences, each of which has already cost somebody an hou
   `git merge-base --is-ancestor origin/main HEAD && echo current` before a report says your branch
   sits on top of anything. Measured 2026-09-25: a branch reported as "based on baf690b, already
   current" would have reverted two landed fixes and deleted a test file when merged.
+  **The panel harness has no layout.** Its fake DOM computes no sizes, so a CSS change passes every
+  test whether or not it works on screen. For a layout fix, work the sizing through yourself: grid
+  auto-fill, fit-content and an img's natural width have each fooled a "fixed" report. If you could
+  not reason it through to the pixel, the report says "untested in a browser", and the operator's
+  screenshot decides.
   **HTTP and HTTPS do reach out. What stops you is the filesystem, not the network.** Measured
   2026-09-21: the npm registry answers and a fetch from an `https://` remote works. And yet
   `npm install`, `npm view` and `npx` all fail anyway, because npm's cache lives outside everything
