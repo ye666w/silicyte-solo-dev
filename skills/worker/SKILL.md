@@ -138,6 +138,12 @@ nothing else. Three consequences, each of which has already cost somebody an hou
   `git show origin/main:<path>` for one file, `git archive origin/main | tar -x -C <dir>` for a
   tree. Say in your report which revision you read. Line numbers from the wrong one waste
   everybody's turn.
+  **"Rebased" and "current" are claims you check, not claims you infer.** Root often lands your
+  work by cherry-picking it, so `main` carries your commit messages under new hashes. A branch that
+  still holds the originals looks current in `git log` and is not. Run
+  `git merge-base --is-ancestor origin/main HEAD && echo current` before a report says your branch
+  sits on top of anything. Measured 2026-09-25: a branch reported as "based on baf690b, already
+  current" would have reverted two landed fixes and deleted a test file when merged.
   **HTTP and HTTPS do reach out. What stops you is the filesystem, not the network.** Measured
   2026-09-21: the npm registry answers and a fetch from an `https://` remote works. And yet
   `npm install`, `npm view` and `npx` all fail anyway, because npm's cache lives outside everything
